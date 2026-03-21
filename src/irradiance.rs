@@ -61,11 +61,11 @@ pub fn haydavies(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, d
     }
     let a = a.clamp(0.0, 1.0);
     let mut cos_z = solar_zenith.to_radians().cos();
-    if cos_z < 0.0436 { cos_z = 0.0436; }
-    
+    if cos_z < 85.0_f64.to_radians().cos() { cos_z = 85.0_f64.to_radians().cos(); }
+
     let cos_aoi = aoi_in.to_radians().cos().max(0.0);
     let r_b = cos_aoi / cos_z;
-    
+
     dhi * ((1.0 - a) * (1.0 + surface_tilt.to_radians().cos()) / 2.0 + a * r_b)
 }
 
@@ -102,7 +102,7 @@ pub fn klucher(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, ghi: f64, sol
 #[inline]
 pub fn perez(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, _solar_azimuth: f64, airmass: f64, aoi_in: f64) -> f64 {
     let mut cos_z = solar_zenith.to_radians().cos();
-    if cos_z < 0.0436 { cos_z = 0.0436; } // cap to ~87.5 deg
+    if cos_z < 85.0_f64.to_radians().cos() { cos_z = 85.0_f64.to_radians().cos(); }
     let cos_aoi = aoi_in.to_radians().cos().max(0.0); // beam parallel to surface if >90
 
     // sky clearness epsilon
@@ -143,12 +143,12 @@ pub fn perez(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_e
 /// Solar Energy, 28(4), pp. 293-302.
 #[inline]
 pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f64) {
-    if ghi <= 0.0 || zenith >= 90.0 { return (0.0, 0.0); }
+    if ghi <= 0.0 || zenith >= 87.0 { return (0.0, ghi); }
     let mut cos_z = zenith.to_radians().cos();
-    if cos_z < 0.0436 { cos_z = 0.0436; }
-    
+    if cos_z < 85.0_f64.to_radians().cos() { cos_z = 85.0_f64.to_radians().cos(); }
+
     let kt = ghi / (dni_extra * cos_z);
-    
+
     let kd = if kt <= 0.22 {
         1.0 - 0.09 * kt
     } else if kt <= 0.80 {
@@ -156,10 +156,11 @@ pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f
     } else {
         0.165
     };
-    
+
     let dhi = ghi * kd.clamp(0.0, 1.0);
-    let dni = ((ghi - dhi) / cos_z).max(0.0);
-    
+    let dni = (ghi - dhi) / cos_z;
+    if dni < 0.0 { return (0.0, ghi); }
+
     (dni, dhi)
 }
 
@@ -172,7 +173,7 @@ pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f
 #[inline]
 pub fn boland(ghi: f64, zenith: f64, dni_extra: f64) -> (f64, f64) {
     if ghi <= 0.0 || zenith >= 90.0 { return (0.0, 0.0); }
-    let cos_z = zenith.to_radians().cos().max(0.0436);
+    let cos_z = zenith.to_radians().cos().max(85.0_f64.to_radians().cos());
     
     let kt = ghi / (dni_extra * cos_z);
     
@@ -200,7 +201,7 @@ pub fn dirint(ghi: f64, zenith: f64, _dew_point: f64, _pressure: f64, dni_extra:
     // In a full time-series context, DIRINT uses persistence bins. 
     // Here we approximate it by defaulting to a slightly more aggressive Erbs.
     if ghi <= 0.0 || zenith >= 90.0 { return (0.0, 0.0); }
-    let cos_z = zenith.to_radians().cos().max(0.0436);
+    let cos_z = zenith.to_radians().cos().max(85.0_f64.to_radians().cos());
     
     let kt = ghi / (dni_extra * cos_z);
     
@@ -242,11 +243,12 @@ pub fn reindl(surface_tilt: f64, dhi: f64, ghi: f64, dni: f64, dni_extra: f64, s
     if dni_extra > 0.0 { a = dni / dni_extra; }
     let a = a.clamp(0.0, 1.0);
     
-    let cos_z = solar_zenith.to_radians().cos().max(0.0436);
+    let cos_z = solar_zenith.to_radians().cos().max(85.0_f64.to_radians().cos());
     let cos_aoi = aoi_in.to_radians().cos().max(0.0);
     let r_b = cos_aoi / cos_z;
     
-    let f = if ghi > 0.0 { (dni / ghi).powi(2) } else { 0.0 };
+    let cos_z_reindl = solar_zenith.to_radians().cos().max(0.0);
+    let f = if ghi > 0.0 { ((dni * cos_z_reindl) / ghi).sqrt() } else { 0.0 };
     
     let tilt_rad = surface_tilt.to_radians();
     let term1 = dhi * (1.0 - a) * (1.0 + tilt_rad.cos()) / 2.0 * (1.0 + f * (tilt_rad / 2.0).sin().powi(3));

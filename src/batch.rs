@@ -54,7 +54,7 @@ pub fn ineichen_batch(
     assert_eq!(zenith.len(), airmass_absolute.len(), "zenith and airmass_absolute must have the same length");
     let results: Vec<_> = zenith.par_iter()
         .zip(airmass_absolute.par_iter())
-        .map(|(z, am)| clearsky::ineichen(*z, *am, linke_turbidity, altitude))
+        .map(|(z, am)| clearsky::ineichen(*z, *am, linke_turbidity, altitude, 1364.0))
         .collect();
     let ghi = results.iter().map(|r| r.ghi).collect();
     let dni = results.iter().map(|r| r.dni).collect();
@@ -455,12 +455,15 @@ impl BatchModelChain {
             );
 
             // 6. IAM
+            // Note: Uses Physical IAM model (Fresnel/Snell's law) matching the PVWatts configuration.
             let iam_val = iam::physical(aoi_val, 1.526, 4.0, 0.002);
 
-            // 7. Effective irradiance
-            let eff_irrad = (poa.poa_direct * iam_val + poa.poa_diffuse).max(0.0);
+            // 7. Effective irradiance (spectral modifier = 1.0 for NoLoss)
+            let spectral_modifier = 1.0;
+            let eff_irrad = ((poa.poa_direct * iam_val + poa.poa_diffuse) * spectral_modifier).max(0.0);
 
-            // 8. Cell temperature (PVWatts style)
+            // 8. Cell temperature
+            // Note: Uses PVWatts temperature model (T_cell = T_air + POA*(NOCT-20)/800).
             let t_cell = weather.temp_air[i] + poa.poa_global * (45.0 - 20.0) / 800.0;
 
             // 9. DC power

@@ -227,7 +227,7 @@ fn sandia_simple_params(
 
 fn calc_i0(voltage: f64, current: f64, iph: f64, gsh: f64, rs: f64, n_ns_vth: f64) -> f64 {
     let x = (voltage + rs * current) / n_ns_vth;
-    let denom = x.exp() - 1.0;
+    let denom = x.exp_m1();
     if denom.abs() < 1e-30 {
         return f64::NAN;
     }

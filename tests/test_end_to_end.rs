@@ -382,7 +382,7 @@ fn test_e2e_tracking_geometry() {
     let (surface_tilt, _surface_azimuth, aoi_val) = tracking::singleaxis(
         30.0, 180.0,  // solar position
         0.0, 0.0,     // axis orientation (N-S horizontal)
-        60.0, true, 0.35,
+        60.0, true, 0.35, 0.0,
     );
 
     assert!(surface_tilt >= 0.0 && surface_tilt <= 60.0,

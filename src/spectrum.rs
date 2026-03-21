@@ -36,9 +36,9 @@ pub fn first_solar_spectral_correction(precipitable_water: f64, airmass_absolute
     let m = coefficients[0] 
           + coefficients[1]*am 
           + coefficients[2]*pw 
-          + coefficients[3]*am.powi(2) 
-          + coefficients[4]*pw.powi(2) 
-          + coefficients[5]*am*pw;
+          + coefficients[3]*am.sqrt()
+          + coefficients[4]*pw.sqrt()
+          + coefficients[5]*am/pw.sqrt();
           
     m.max(0.0)
 }

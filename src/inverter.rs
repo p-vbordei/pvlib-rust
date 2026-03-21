@@ -149,23 +149,52 @@ pub fn sandia_multi(
 
 /// Anton Driesse (ADR) Inverter Model.
 ///
-/// A highly robust parameter model used often in place of Sandia.
+/// Converts DC power and voltage to AC power using the ADR loss-based
+/// formulation with 9 coefficients, matching pvlib-python `inverter.adr`.
+///
+/// # Arguments
+/// * `v_dc` - DC voltage input to the inverter (V).
+/// * `p_dc` - DC power input to the inverter (W).
+/// * `p_nom` - Nominal DC power (W).
+/// * `v_nom` - Nominal DC voltage (V).
+/// * `pac_max` - Maximum AC output power for clipping (W).
+/// * `p_nt` - Night tare power consumption (W, positive value).
+/// * `adr_coeffs` - 9 ADR coefficients [b00, b10, b20, b01, b11, b21, b02, b12, b22].
 ///
 /// # References
-/// Driesse, A. et al., 2020. "Beyond PVWatts: A streamlined PV grid-connected inverter model."
+/// Driesse, A., 2008. "Beyond the Curves: Modeling the Electrical Efficiency
+/// of Photovoltaic Inverters", 33rd IEEE PVSC.
 #[inline]
-pub fn adr(v_dc: f64, p_dc: f64, p_nom: f64, v_nom: f64, adr_coeffs: [f64; 6]) -> f64 {
-    let v_ratio = v_dc / v_nom.max(0.1);
-    let p_ratio = p_dc / p_nom.max(0.1);
-
-    // Empirical ADR efficiency polynomial
-    let eff = adr_coeffs[0]
-            + adr_coeffs[1] * v_ratio
-            + adr_coeffs[2] * p_ratio
-            + adr_coeffs[3] * v_ratio.powi(2)
-            + adr_coeffs[4] * p_ratio.powi(2)
-            + adr_coeffs[5] * v_ratio * p_ratio;
-
-    let p_ac = p_dc * eff.clamp(0.0, 1.0);
-    p_ac.clamp(0.0, p_nom)
+pub fn adr(
+    v_dc: f64,
+    p_dc: f64,
+    p_nom: f64,
+    v_nom: f64,
+    pac_max: f64,
+    p_nt: f64,
+    adr_coeffs: [f64; 9],
+) -> f64 {
+    if v_dc <= 0.0 || p_dc <= 0.0 {
+        return -p_nt.abs();
+    }
+    let pdc = p_dc / p_nom;
+    let vdc = v_dc / v_nom;
+    let poly = [
+        1.0,
+        pdc,
+        pdc * pdc,
+        vdc - 1.0,
+        pdc * (vdc - 1.0),
+        pdc * pdc * (vdc - 1.0),
+        1.0 / vdc - 1.0,
+        pdc * (1.0 / vdc - 1.0),
+        pdc * pdc * (1.0 / vdc - 1.0),
+    ];
+    let p_loss: f64 = adr_coeffs
+        .iter()
+        .zip(poly.iter())
+        .map(|(c, p)| c * p)
+        .sum();
+    let power_ac = p_nom * (pdc - p_loss);
+    power_ac.clamp(-p_nt.abs(), pac_max)
 }

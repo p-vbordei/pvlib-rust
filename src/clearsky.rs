@@ -34,7 +34,7 @@ pub fn haurwitz(zenith: f64) -> f64 {
         return 0.0;
     }
     
-    1098.0 * cos_z * (-0.057 / cos_z).exp()
+    1098.0 * cos_z * (-0.059 / cos_z).exp()
 }
 
 /// The Ineichen and Perez (2002) clear sky model.
@@ -47,11 +47,12 @@ pub fn haurwitz(zenith: f64) -> f64 {
 /// * `airmass_absolute` - Absolute air mass.
 /// * `linke_turbidity` - Linke turbidity factor (typically 2 to 6, default ~3).
 /// * `altitude` - Site altitude in meters.
-/// 
+/// * `dni_extra` - Extraterrestrial normal irradiance in W/m^2.
+///
 /// # Returns
 /// A `ClearSkyIrradiance` struct containing GHI, DNI, and DHI in W/m^2.
 #[inline]
-pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitude: f64) -> ClearSkyIrradiance {
+pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitude: f64, dni_extra: f64) -> ClearSkyIrradiance {
     if zenith >= 90.0 || airmass_absolute <= 0.0 {
         return ClearSkyIrradiance { ghi: 0.0, dni: 0.0, dhi: 0.0 };
     }
@@ -65,7 +66,7 @@ pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitu
 
     let cos_z = zenith.to_radians().cos().max(0.01);
 
-    let i0 = 1366.1; // extraterrestrial solar constant
+    let i0 = dni_extra;
 
     let cg1 = 5.09e-05 * h + 0.868;
     let cg2 = 3.92e-05 * h + 0.0387;

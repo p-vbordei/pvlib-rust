@@ -79,7 +79,7 @@ impl Location {
                     time.month()
                 };
                 let linke_turbidity = clearsky::lookup_linke_turbidity(self.latitude, self.longitude, month);
-                clearsky::ineichen(solar_pos.zenith, am_abs, linke_turbidity, self.altitude)
+                clearsky::ineichen(solar_pos.zenith, am_abs, linke_turbidity, self.altitude, 1364.0)
             }
         }
     }

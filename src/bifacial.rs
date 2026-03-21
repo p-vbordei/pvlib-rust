@@ -1,7 +1,12 @@
 use std::f64::consts::PI;
 
+/// **Note:** This is a simplified approximation of the infinite sheds model.
+/// The full implementation (Mikofski et al., 2019) requires detailed view factor
+/// geometry with separate front/back irradiance calculations.
+/// For production use, consider using the Python pvlib implementation.
+///
 /// A more integrated implementation of the infinite sheds bifacial model.
-/// 
+///
 /// Calculates the irradiance on the back surface of a bifacial module,
 /// accounting for row-to-row spacing, height, and sky view fractions.
 /// 

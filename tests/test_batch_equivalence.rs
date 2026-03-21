@@ -120,7 +120,7 @@ fn test_ineichen_batch_vs_scalar() {
         batch::ineichen_batch(&zeniths, &am_abs, linke_turbidity, altitude);
 
     for i in 0..zeniths.len() {
-        let scalar = clearsky::ineichen(zeniths[i], am_abs[i], linke_turbidity, altitude);
+        let scalar = clearsky::ineichen(zeniths[i], am_abs[i], linke_turbidity, altitude, 1364.0);
         assert_eq!(
             batch_ghi[i], scalar.ghi,
             "ineichen GHI mismatch at index {}: batch={} scalar={}",

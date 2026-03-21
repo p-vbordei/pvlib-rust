@@ -1,8 +1,13 @@
+/// **Note:** This is a simplified first-order smoothing approximation.
+/// The full Wavelet Variability Model (Lave et al., 2013) requires
+/// wavelet decomposition which is not yet implemented.
+/// For production use, consider using the Python pvlib WVM implementation.
+///
 /// Simulated Wavelet Variability Model (WVM) smoothing.
-/// 
+///
 /// Real WVM is mathematically complex. This provides a highly simplified
 /// first-order low-pass filter representing the geographic smoothing of a PV plant footprint.
-/// 
+///
 /// # Arguments
 /// * `clear_sky_index` - The instantaneous ratio of measured GHI to clear sky GHI.
 /// * `plant_area` - Total area of the PV plant scattered footprint in square meters.

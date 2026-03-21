@@ -275,15 +275,11 @@ fn bishop88_inner(
 ///
 /// Searches for the diode voltage `vd` such that `bishop88(vd).voltage == voltage`.
 pub fn bishop88_i_from_v(voltage: f64, p: &Bishop88Params) -> f64 {
-    let voc_est = estimate_voc(p.photocurrent, p.saturation_current, p.n_ns_vth);
-    let mut vd = if p.ns_vbi > 0.0 && voc_est >= p.ns_vbi {
-        0.9999 * p.ns_vbi
-    } else {
-        voc_est
-    };
-    // initial guess: diode_voltage ~ voltage (assuming small I*Rs)
-    if voltage < vd {
-        vd = voltage;
+    // Start from voltage as initial guess (matching pvlib-python)
+    let mut vd = voltage;
+    // Only clamp to ns_vbi if it is finite, positive, and vd exceeds it
+    if p.ns_vbi.is_finite() && p.ns_vbi > 0.0 && vd >= p.ns_vbi {
+        vd = 0.9999 * p.ns_vbi;
     }
 
     for _ in 0..NEWTON_MAXITER {
@@ -305,7 +301,7 @@ pub fn bishop88_i_from_v(voltage: f64, p: &Bishop88Params) -> f64 {
 /// Searches for the diode voltage `vd` such that `bishop88(vd).current == current`.
 pub fn bishop88_v_from_i(current: f64, p: &Bishop88Params) -> f64 {
     let voc_est = estimate_voc(p.photocurrent, p.saturation_current, p.n_ns_vth);
-    let mut vd = if p.ns_vbi > 0.0 && voc_est >= p.ns_vbi {
+    let mut vd = if p.ns_vbi.is_finite() && p.ns_vbi > 0.0 && voc_est >= p.ns_vbi {
         0.9999 * p.ns_vbi
     } else {
         voc_est
@@ -331,9 +327,7 @@ pub fn bishop88_v_from_i(current: f64, p: &Bishop88Params) -> f64 {
 /// Searches for diode voltage where dP/dV = 0.
 pub fn bishop88_mpp(p: &Bishop88Params) -> Bishop88Output {
     let voc_est = estimate_voc(p.photocurrent, p.saturation_current, p.n_ns_vth);
-    // Start at Voc estimate. Only clamp to ns_vbi when breakdown modeling
-    // is active (ns_vbi > 0); otherwise use the Voc estimate directly.
-    let mut vd = if p.ns_vbi > 0.0 && voc_est >= p.ns_vbi {
+    let mut vd = if p.ns_vbi.is_finite() && p.ns_vbi > 0.0 && voc_est >= p.ns_vbi {
         0.9999 * p.ns_vbi
     } else {
         voc_est

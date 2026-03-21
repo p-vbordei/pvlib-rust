@@ -12,6 +12,8 @@
 /// * `max_angle` - Maximum rotation angle of the tracker from horizontal (e.g. 45.0 or 60.0 degrees).
 /// * `backtrack` - Enable backtracking (True).
 /// * `gcr` - Ground Coverage Ratio (module width / row pitch).
+/// * `cross_axis_tilt` - Cross-axis tilt angle in degrees (typically from `calc_cross_axis_tilt`).
+///   Use 0.0 for flat terrain.
 ///
 /// # Returns
 /// A tuple containing `(surface_tilt, surface_azimuth, aoi)`. All in degrees.
@@ -27,21 +29,15 @@ pub fn singleaxis(
     max_angle: f64,
     backtrack: bool,
     gcr: f64,
+    cross_axis_tilt: f64,
 ) -> (f64, f64, f64) {
     use crate::shading::projected_solar_zenith_angle;
     use crate::irradiance::aoi as irr_aoi;
 
-    // Sun below horizon — return stow position
+    // Sun below horizon -- return NaN (matching pvlib-python)
     if solar_zenith >= 90.0 {
-        let (st, sa) = calc_surface_orientation(0.0, axis_tilt, axis_azimuth);
-        let a = irr_aoi(st, sa, solar_zenith, solar_azimuth);
-        return (st, sa, a);
+        return (f64::NAN, f64::NAN, f64::NAN);
     }
-
-    // Calculate cross-axis tilt from the axis geometry.
-    // For a flat site (slope_tilt=0) cross_axis_tilt is 0.
-    // Users with sloped terrain should use calc_cross_axis_tilt externally.
-    let cross_axis_tilt: f64 = 0.0;
 
     // Ideal rotation angle via projected solar zenith angle
     // (Anderson & Mikofski 2020, handles arbitrary axis_tilt)
