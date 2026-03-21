@@ -9,6 +9,7 @@
 /// 
 /// # Returns
 /// A unitless modifier to multiply against DC power or current.
+#[inline]
 pub fn spectral_mismatch_modifier(airmass_absolute: f64, coefficients: [f64; 6]) -> f64 {
     let x = airmass_absolute.max(1.0);
     
@@ -28,6 +29,7 @@ pub fn spectral_mismatch_modifier(airmass_absolute: f64, coefficients: [f64; 6])
 /// 
 /// # References
 /// Lee, M. et al., 2018. "A new empirical model for spectral correction of PV performance."
+#[inline]
 pub fn first_solar_spectral_correction(precipitable_water: f64, airmass_absolute: f64, coefficients: [f64; 6]) -> f64 {
     let pw = precipitable_water;
     let am = airmass_absolute;
@@ -51,6 +53,7 @@ pub fn first_solar_spectral_correction(precipitable_water: f64, airmass_absolute
 ///
 /// # Returns
 /// Spectral mismatch factor (unitless, non-negative).
+#[inline]
 pub fn spectral_factor_sapm(airmass_absolute: f64, coefficients: [f64; 5]) -> f64 {
     if airmass_absolute.is_nan() {
         return 0.0;
@@ -76,6 +79,7 @@ pub fn spectral_factor_sapm(airmass_absolute: f64, coefficients: [f64; 5]) -> f6
 ///
 /// # Returns
 /// Spectral mismatch modifier (unitless).
+#[inline]
 pub fn spectral_factor_caballero(
     precipitable_water: f64,
     airmass_absolute: f64,
@@ -102,6 +106,7 @@ pub fn spectral_factor_caballero(
 }
 
 /// Built-in Caballero coefficients for common module types.
+#[inline]
 pub fn caballero_coefficients(module_type: &str) -> Option<[f64; 12]> {
     match module_type {
         "cdte" => Some([

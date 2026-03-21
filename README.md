@@ -6,12 +6,14 @@ pvlib-rust provides the same algorithms, accuracy, and modeling capabilities as 
 
 ## Features
 
-- **156 public functions** across **23 modules**
-- **302 tests** with end-to-end validation
-- Full simulation pipeline via `ModelChain`
+- **170+ public functions** across **24 modules**
+- **319 tests** with end-to-end validation
+- **Batch processing** — rayon-parallelized, full TMY year (8760 hours) in ~4ms
+- Full simulation pipeline via `ModelChain` and `BatchModelChain`
 - Multiple model options at each step (transposition, temperature, IAM, inverter)
 - Weather file I/O (TMY3, EPW) and PVGIS API client
 - IV curve fitting and single-diode model parameter extraction
+- `#[inline]` annotations on all hot-path functions for optimal loop performance
 - No unsafe code
 
 ## Quick Start
@@ -62,6 +64,45 @@ let result = mc.run_model_from_weather(&weather).unwrap();
 println!("DC Power: {:.0} W", result.dc_power);
 println!("AC Power: {:.0} W", result.ac_power);
 println!("Cell Temp: {:.1} °C", result.cell_temperature);
+```
+
+### Batch Simulation (Production Workloads)
+
+Simulate an entire year in milliseconds using rayon-parallelized batch processing:
+
+```rust
+use pvlib::batch::{BatchModelChain, WeatherSeries};
+use pvlib::location::Location;
+use pvlib::irradiance::DiffuseModel;
+
+let location = Location::new(39.74, -105.18, Mountain, 1830.0, "Golden, CO");
+
+// Builder pattern for ergonomic configuration
+let mc = BatchModelChain::pvwatts(location, 30.0, 180.0, 5000.0)
+    .with_gamma_pdc(-0.004)
+    .with_inverter(5000.0, 0.96)
+    .with_albedo(0.2)
+    .with_transposition(DiffuseModel::Perez);
+
+// Load weather data (8760 hourly timesteps)
+let weather = WeatherSeries { times, ghi, dni, dhi, temp_air, wind_speed, albedo: None };
+
+// Full year simulation — ~4ms on modern hardware
+let results = mc.run(&weather).unwrap();
+
+println!("Annual energy: {:.0} kWh", results.total_energy_wh() / 1000.0);
+println!("Peak power: {:.0} W", results.peak_power());
+println!("Capacity factor: {:.1}%", results.capacity_factor(5000.0) * 100.0);
+```
+
+Individual batch functions are also available for custom pipelines:
+
+```rust
+use pvlib::batch;
+
+let zenith_vec = vec![30.0; 8760];
+let am = batch::airmass_relative_batch(&zenith_vec);
+let (ghi, dni, dhi) = batch::ineichen_batch(&zenith_vec, &am, 3.0, 1830.0);
 ```
 
 ### Step-by-Step Usage
@@ -214,19 +255,14 @@ pvlib-rust covers the core simulation pipeline of pvlib-python. Some differences
 
 ```bash
 cargo build          # Build the library
-cargo test           # Run all 302 tests
+cargo test           # Run all 319 tests
 cargo clippy         # Lint checks
 cargo doc --open     # Generate and view documentation
 ```
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT License ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+Licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

@@ -48,10 +48,12 @@ impl PVSystem {
         Self { arrays, inverter_capacity }
     }
 
+    #[inline]
     pub fn get_nameplate_dc_total(&self) -> f64 {
         self.arrays.iter().map(|a| a.nameplate_dc).sum()
     }
 
+    #[inline]
     pub fn get_dc_power_total(&self, poa_global: f64, temp_cell: f64) -> f64 {
         let mut total_power = 0.0;
         for array in &self.arrays {
@@ -110,6 +112,7 @@ pub struct SDMParams {
 /// W. De Soto et al., 2006, "Improvement and validation of a model for
 /// photovoltaic array performance", Solar Energy, vol 80, pp. 78-88.
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn calcparams_desoto(
     effective_irradiance: f64,
     temp_cell: f64,
@@ -167,6 +170,7 @@ pub fn calcparams_desoto(
 /// Energy Commission 6 Parameter Photovoltaic Module Model", Journal of
 /// Solar Energy Engineering, vol 134.
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn calcparams_cec(
     effective_irradiance: f64,
     temp_cell: f64,
@@ -215,6 +219,7 @@ pub fn calcparams_cec(
 /// Temperature Dependence of Photovoltaic Modules in PVsyst",
 /// IEEE Journal of Photovoltaics v5(1).
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn calcparams_pvsyst(
     effective_irradiance: f64,
     temp_cell: f64,
@@ -346,6 +351,7 @@ pub struct SAPMOutput {
 /// # References
 /// King, D. et al, 2004, "Sandia Photovoltaic Array Performance Model",
 /// SAND Report 3535, Sandia National Laboratories.
+#[inline]
 pub fn sapm(effective_irradiance: f64, temp_cell: f64, module: &SAPMParams) -> SAPMOutput {
     let irradiance_ref = 1000.0;
     let temperature_ref = 25.0;
@@ -408,6 +414,7 @@ fn sapm_spectral_factor(airmass_absolute: f64, module: &SAPMParams) -> f64 {
 /// # References
 /// King, D. et al, 2004, "Sandia Photovoltaic Array Performance Model",
 /// SAND2004-3535, Sandia National Laboratories.
+#[inline]
 pub fn sapm_effective_irradiance(
     poa_direct: f64,
     poa_diffuse: f64,

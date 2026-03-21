@@ -14,6 +14,7 @@
 ///
 /// # Returns
 /// Module efficiency (same units/scale as k_a).
+#[inline]
 pub fn pvefficiency_adr(
     effective_irradiance: f64,
     temp_cell: f64,
@@ -54,6 +55,7 @@ pub fn pvefficiency_adr(
 ///
 /// # Returns
 /// DC power in W.
+#[inline]
 pub fn huld(
     effective_irradiance: f64,
     temp_module: f64,

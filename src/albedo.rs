@@ -1,4 +1,5 @@
 /// Surface albedo values for common surfaces.
+#[inline]
 pub fn surface_albedo(surface: &str) -> Option<f64> {
     match surface {
         "urban" => Some(0.18),
@@ -42,6 +43,7 @@ fn water_coefficients(surface_condition: &str) -> Option<(f64, f64)> {
 ///
 /// # Returns
 /// Albedo value (dimensionless).
+#[inline]
 pub fn inland_water_dvoracek(solar_elevation: f64, surface_condition: &str) -> f64 {
     let (c, r) = water_coefficients(surface_condition)
         .unwrap_or_else(|| panic!("Unknown surface condition: {}", surface_condition));
@@ -61,6 +63,7 @@ pub fn inland_water_dvoracek(solar_elevation: f64, surface_condition: &str) -> f
 ///
 /// # Returns
 /// Albedo value (dimensionless).
+#[inline]
 pub fn inland_water_dvoracek_custom(
     solar_elevation: f64,
     color_coeff: f64,

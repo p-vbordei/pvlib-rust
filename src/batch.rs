@@ -1,0 +1,469 @@
+use rayon::prelude::*;
+use crate::{solarposition, atmosphere, clearsky, irradiance, temperature, iam, inverter};
+
+// ---------------------------------------------------------------------------
+// Solar Position Batch
+// ---------------------------------------------------------------------------
+
+/// Batch solar position calculation for multiple timestamps.
+/// Returns (zenith_vec, azimuth_vec, elevation_vec).
+pub fn solar_position_batch(
+    location: &crate::location::Location,
+    times: &[chrono::DateTime<chrono_tz::Tz>],
+) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>), spa::SpaError> {
+    let results: Result<Vec<_>, _> = times.par_iter()
+        .map(|t| solarposition::get_solarposition(location, *t))
+        .collect();
+    let results = results?;
+    let zenith = results.iter().map(|r| r.zenith).collect();
+    let azimuth = results.iter().map(|r| r.azimuth).collect();
+    let elevation = results.iter().map(|r| r.elevation).collect();
+    Ok((zenith, azimuth, elevation))
+}
+
+// ---------------------------------------------------------------------------
+// Atmosphere Batch
+// ---------------------------------------------------------------------------
+
+/// Batch relative airmass for an array of zenith angles.
+pub fn airmass_relative_batch(zenith: &[f64]) -> Vec<f64> {
+    zenith.par_iter()
+        .map(|z| atmosphere::get_relative_airmass(*z))
+        .collect()
+}
+
+/// Batch absolute airmass.
+pub fn airmass_absolute_batch(airmass_relative: &[f64], pressure: f64) -> Vec<f64> {
+    airmass_relative.par_iter()
+        .map(|am| atmosphere::get_absolute_airmass(*am, pressure))
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Clear Sky Batch
+// ---------------------------------------------------------------------------
+
+/// Batch Ineichen clear sky model.
+/// Returns (ghi_vec, dni_vec, dhi_vec).
+pub fn ineichen_batch(
+    zenith: &[f64],
+    airmass_absolute: &[f64],
+    linke_turbidity: f64,
+    altitude: f64,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let results: Vec<_> = zenith.par_iter()
+        .zip(airmass_absolute.par_iter())
+        .map(|(z, am)| clearsky::ineichen(*z, *am, linke_turbidity, altitude))
+        .collect();
+    let ghi = results.iter().map(|r| r.ghi).collect();
+    let dni = results.iter().map(|r| r.dni).collect();
+    let dhi = results.iter().map(|r| r.dhi).collect();
+    (ghi, dni, dhi)
+}
+
+/// Batch Bird clear sky model.
+pub fn bird_batch(
+    zenith: &[f64],
+    airmass_relative: &[f64],
+    aod380: f64,
+    aod500: f64,
+    precipitable_water: f64,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let results: Vec<_> = zenith.par_iter()
+        .zip(airmass_relative.par_iter())
+        .map(|(z, am)| clearsky::bird_default(*z, *am, aod380, aod500, precipitable_water))
+        .collect();
+    let ghi = results.iter().map(|r| r.ghi).collect();
+    let dni = results.iter().map(|r| r.dni).collect();
+    let dhi = results.iter().map(|r| r.dhi).collect();
+    (ghi, dni, dhi)
+}
+
+// ---------------------------------------------------------------------------
+// Irradiance Batch
+// ---------------------------------------------------------------------------
+
+/// Batch AOI calculation.
+pub fn aoi_batch(
+    surface_tilt: f64,
+    surface_azimuth: f64,
+    solar_zenith: &[f64],
+    solar_azimuth: &[f64],
+) -> Vec<f64> {
+    solar_zenith.par_iter()
+        .zip(solar_azimuth.par_iter())
+        .map(|(z, a)| irradiance::aoi(surface_tilt, surface_azimuth, *z, *a))
+        .collect()
+}
+
+/// Batch extraterrestrial radiation.
+pub fn extra_radiation_batch(day_of_year: &[i32]) -> Vec<f64> {
+    day_of_year.par_iter()
+        .map(|d| irradiance::get_extra_radiation(*d))
+        .collect()
+}
+
+/// Batch Erbs decomposition. Returns (dni_vec, dhi_vec).
+pub fn erbs_batch(
+    ghi: &[f64],
+    zenith: &[f64],
+    day_of_year: &[u32],
+    dni_extra: &[f64],
+) -> (Vec<f64>, Vec<f64>) {
+    let results: Vec<_> = ghi.par_iter()
+        .zip(zenith.par_iter())
+        .zip(day_of_year.par_iter())
+        .zip(dni_extra.par_iter())
+        .map(|(((g, z), d), e)| irradiance::erbs(*g, *z, *d, *e))
+        .collect();
+    let dni = results.iter().map(|r| r.0).collect();
+    let dhi = results.iter().map(|r| r.1).collect();
+    (dni, dhi)
+}
+
+/// Batch DISC decomposition. Returns (dni_vec, kt_vec, airmass_vec).
+pub fn disc_batch(
+    ghi: &[f64],
+    solar_zenith: &[f64],
+    day_of_year: &[i32],
+    pressure: Option<f64>,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let results: Vec<_> = ghi.par_iter()
+        .zip(solar_zenith.par_iter())
+        .zip(day_of_year.par_iter())
+        .map(|((g, z), d)| irradiance::disc(*g, *z, *d, pressure))
+        .collect();
+    let dni = results.iter().map(|r| r.dni).collect();
+    let kt = results.iter().map(|r| r.kt).collect();
+    let am = results.iter().map(|r| r.airmass).collect();
+    (dni, kt, am)
+}
+
+/// Batch Perez transposition model.
+#[allow(clippy::too_many_arguments)]
+pub fn perez_batch(
+    surface_tilt: f64,
+    surface_azimuth: f64,
+    dhi: &[f64],
+    dni: &[f64],
+    dni_extra: &[f64],
+    solar_zenith: &[f64],
+    solar_azimuth: &[f64],
+    airmass: &[f64],
+    aoi_vals: &[f64],
+) -> Vec<f64> {
+    let n = dhi.len();
+    (0..n).into_par_iter()
+        .map(|i| irradiance::perez(
+            surface_tilt, surface_azimuth,
+            dhi[i], dni[i], dni_extra[i],
+            solar_zenith[i], solar_azimuth[i],
+            airmass[i], aoi_vals[i],
+        ))
+        .collect()
+}
+
+/// Batch get_total_irradiance. Returns PoaComponents for each timestep.
+#[allow(clippy::too_many_arguments)]
+pub fn total_irradiance_batch(
+    surface_tilt: f64,
+    surface_azimuth: f64,
+    solar_zenith: &[f64],
+    solar_azimuth: &[f64],
+    dni: &[f64],
+    ghi: &[f64],
+    dhi: &[f64],
+    albedo: f64,
+    model: irradiance::DiffuseModel,
+    dni_extra: &[f64],
+    airmass: &[f64],
+) -> Vec<irradiance::PoaComponents> {
+    let n = solar_zenith.len();
+    (0..n).into_par_iter()
+        .map(|i| irradiance::get_total_irradiance(
+            surface_tilt, surface_azimuth,
+            solar_zenith[i], solar_azimuth[i],
+            dni[i], ghi[i], dhi[i],
+            albedo, model,
+            Some(dni_extra[i]),
+            Some(airmass[i]),
+        ))
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Temperature Batch
+// ---------------------------------------------------------------------------
+
+/// Batch SAPM cell temperature. Returns (cell_temp_vec, module_temp_vec).
+#[allow(clippy::too_many_arguments)]
+pub fn sapm_cell_temperature_batch(
+    poa_global: &[f64],
+    temp_air: &[f64],
+    wind_speed: &[f64],
+    a: f64, b: f64, delta_t: f64, irrad_ref: f64,
+) -> (Vec<f64>, Vec<f64>) {
+    let n = poa_global.len();
+    let results: Vec<_> = (0..n).into_par_iter()
+        .map(|i| temperature::sapm_cell_temperature(
+            poa_global[i], temp_air[i], wind_speed[i], a, b, delta_t, irrad_ref,
+        ))
+        .collect();
+    let cell = results.iter().map(|r| r.0).collect();
+    let module = results.iter().map(|r| r.1).collect();
+    (cell, module)
+}
+
+/// Batch Faiman cell temperature.
+pub fn faiman_batch(
+    poa_global: &[f64],
+    temp_air: &[f64],
+    wind_speed: &[f64],
+    u0: f64,
+    u1: f64,
+) -> Vec<f64> {
+    let n = poa_global.len();
+    (0..n).into_par_iter()
+        .map(|i| temperature::faiman(poa_global[i], temp_air[i], wind_speed[i], u0, u1))
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// IAM Batch
+// ---------------------------------------------------------------------------
+
+/// Batch Physical IAM.
+pub fn iam_physical_batch(aoi: &[f64], n: f64, k: f64, l: f64) -> Vec<f64> {
+    aoi.par_iter()
+        .map(|a| iam::physical(*a, n, k, l))
+        .collect()
+}
+
+/// Batch ASHRAE IAM.
+pub fn iam_ashrae_batch(aoi: &[f64], b0: f64) -> Vec<f64> {
+    aoi.par_iter()
+        .map(|a| iam::ashrae(*a, b0))
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Inverter Batch
+// ---------------------------------------------------------------------------
+
+/// Batch PVWatts AC power.
+pub fn pvwatts_ac_batch(
+    pdc: &[f64],
+    pdc0: f64,
+    eta_inv_nom: f64,
+    eta_inv_ref: f64,
+) -> Vec<f64> {
+    pdc.par_iter()
+        .map(|p| inverter::pvwatts_ac(*p, pdc0, eta_inv_nom, eta_inv_ref))
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Full Pipeline Batch
+// ---------------------------------------------------------------------------
+
+/// Input data for batch simulation -- one value per timestep.
+#[derive(Debug, Clone)]
+pub struct WeatherSeries {
+    pub times: Vec<chrono::DateTime<chrono_tz::Tz>>,
+    pub ghi: Vec<f64>,
+    pub dni: Vec<f64>,
+    pub dhi: Vec<f64>,
+    pub temp_air: Vec<f64>,
+    pub wind_speed: Vec<f64>,
+    pub albedo: Option<Vec<f64>>,
+}
+
+/// Output from batch simulation -- one value per timestep.
+#[derive(Debug, Clone)]
+pub struct SimulationSeries {
+    pub solar_zenith: Vec<f64>,
+    pub solar_azimuth: Vec<f64>,
+    pub airmass: Vec<f64>,
+    pub aoi: Vec<f64>,
+    pub poa_global: Vec<f64>,
+    pub poa_direct: Vec<f64>,
+    pub poa_diffuse: Vec<f64>,
+    pub cell_temperature: Vec<f64>,
+    pub effective_irradiance: Vec<f64>,
+    pub dc_power: Vec<f64>,
+    pub ac_power: Vec<f64>,
+}
+
+impl SimulationSeries {
+    /// Total energy produced in Wh (assuming 1-hour timesteps).
+    pub fn total_energy_wh(&self) -> f64 {
+        self.ac_power.iter().filter(|p| **p > 0.0).sum()
+    }
+
+    /// Peak AC power in W.
+    pub fn peak_power(&self) -> f64 {
+        self.ac_power.iter().cloned().fold(0.0_f64, f64::max)
+    }
+
+    /// Capacity factor (ratio of actual energy to theoretical maximum).
+    pub fn capacity_factor(&self, system_capacity_w: f64) -> f64 {
+        let hours = self.ac_power.len() as f64;
+        if hours == 0.0 || system_capacity_w == 0.0 { return 0.0; }
+        self.total_energy_wh() / (system_capacity_w * hours)
+    }
+}
+
+/// Batch ModelChain -- runs the full PV simulation pipeline on a time series
+/// using rayon for parallel processing.
+///
+/// This is the main entry point for production batch simulations.
+/// A typical TMY year (8760 hourly timesteps) completes in milliseconds.
+pub struct BatchModelChain {
+    pub location: crate::location::Location,
+    pub surface_tilt: f64,
+    pub surface_azimuth: f64,
+    pub system_capacity_dc: f64,
+    /// Temperature coefficient, e.g. -0.004
+    pub gamma_pdc: f64,
+    pub inverter_capacity: f64,
+    pub inverter_efficiency: f64,
+    pub albedo: f64,
+    pub transposition_model: irradiance::DiffuseModel,
+}
+
+impl BatchModelChain {
+    /// Create a new BatchModelChain with PVWatts-style defaults.
+    pub fn pvwatts(
+        location: crate::location::Location,
+        surface_tilt: f64,
+        surface_azimuth: f64,
+        system_capacity_dc: f64,
+    ) -> Self {
+        Self {
+            location,
+            surface_tilt,
+            surface_azimuth,
+            system_capacity_dc,
+            gamma_pdc: -0.004,
+            inverter_capacity: system_capacity_dc,
+            inverter_efficiency: 0.96,
+            albedo: 0.2,
+            transposition_model: irradiance::DiffuseModel::Perez,
+        }
+    }
+
+    /// Builder: set temperature coefficient.
+    pub fn with_gamma_pdc(mut self, gamma_pdc: f64) -> Self {
+        self.gamma_pdc = gamma_pdc;
+        self
+    }
+
+    /// Builder: set inverter parameters.
+    pub fn with_inverter(mut self, capacity: f64, efficiency: f64) -> Self {
+        self.inverter_capacity = capacity;
+        self.inverter_efficiency = efficiency;
+        self
+    }
+
+    /// Builder: set ground albedo.
+    pub fn with_albedo(mut self, albedo: f64) -> Self {
+        self.albedo = albedo;
+        self
+    }
+
+    /// Builder: set transposition model.
+    pub fn with_transposition(mut self, model: irradiance::DiffuseModel) -> Self {
+        self.transposition_model = model;
+        self
+    }
+
+    /// Run the full simulation on a weather time series.
+    ///
+    /// Uses rayon for automatic parallelization across CPU cores.
+    pub fn run(&self, weather: &WeatherSeries) -> Result<SimulationSeries, spa::SpaError> {
+        let n = weather.times.len();
+        assert_eq!(weather.ghi.len(), n);
+        assert_eq!(weather.dni.len(), n);
+        assert_eq!(weather.dhi.len(), n);
+        assert_eq!(weather.temp_air.len(), n);
+        assert_eq!(weather.wind_speed.len(), n);
+
+        let pressure = atmosphere::alt2pres(self.location.altitude);
+        let albedo_default = self.albedo;
+
+        // Run entire pipeline in parallel for each timestep
+        let results: Result<Vec<_>, _> = (0..n).into_par_iter().map(|i| {
+            // 1. Solar position
+            let solpos = solarposition::get_solarposition(&self.location, weather.times[i])?;
+
+            // 2. Airmass
+            let am_rel = atmosphere::get_relative_airmass(solpos.zenith);
+            let am_abs = if am_rel.is_nan() || am_rel <= 0.0 {
+                0.0
+            } else {
+                atmosphere::get_absolute_airmass(am_rel, pressure)
+            };
+
+            // 3. AOI
+            let aoi_val = irradiance::aoi(
+                self.surface_tilt, self.surface_azimuth,
+                solpos.zenith, solpos.azimuth,
+            );
+
+            // 4. Extraterrestrial irradiance
+            let doy = weather.times[i].format("%j").to_string().parse::<i32>().unwrap_or(1);
+            let dni_extra = irradiance::get_extra_radiation(doy);
+
+            // 5. Transposition
+            let poa = irradiance::get_total_irradiance(
+                self.surface_tilt, self.surface_azimuth,
+                solpos.zenith, solpos.azimuth,
+                weather.dni[i], weather.ghi[i], weather.dhi[i],
+                weather.albedo.as_ref().map_or(albedo_default, |a| a[i]),
+                self.transposition_model,
+                Some(dni_extra),
+                if am_rel.is_nan() { None } else { Some(am_rel) },
+            );
+
+            // 6. IAM
+            let iam_val = iam::physical(aoi_val, 1.526, 4.0, 0.002);
+
+            // 7. Effective irradiance
+            let eff_irrad = (poa.poa_direct * iam_val + poa.poa_diffuse).max(0.0);
+
+            // 8. Cell temperature (PVWatts style)
+            let t_cell = weather.temp_air[i] + poa.poa_global * (45.0 - 20.0) / 800.0;
+
+            // 9. DC power
+            let pdc = self.system_capacity_dc * (eff_irrad / 1000.0)
+                * (1.0 + self.gamma_pdc * (t_cell - 25.0));
+            let pdc = pdc.max(0.0);
+
+            // 10. AC power
+            let pac = inverter::pvwatts_ac(
+                pdc, self.system_capacity_dc,
+                self.inverter_efficiency, 0.9637,
+            );
+
+            Ok((solpos.zenith, solpos.azimuth, am_abs, aoi_val,
+                poa.poa_global, poa.poa_direct, poa.poa_diffuse,
+                t_cell, eff_irrad, pdc, pac))
+        }).collect();
+
+        let results = results?;
+
+        Ok(SimulationSeries {
+            solar_zenith: results.iter().map(|r| r.0).collect(),
+            solar_azimuth: results.iter().map(|r| r.1).collect(),
+            airmass: results.iter().map(|r| r.2).collect(),
+            aoi: results.iter().map(|r| r.3).collect(),
+            poa_global: results.iter().map(|r| r.4).collect(),
+            poa_direct: results.iter().map(|r| r.5).collect(),
+            poa_diffuse: results.iter().map(|r| r.6).collect(),
+            cell_temperature: results.iter().map(|r| r.7).collect(),
+            effective_irradiance: results.iter().map(|r| r.8).collect(),
+            dc_power: results.iter().map(|r| r.9).collect(),
+            ac_power: results.iter().map(|r| r.10).collect(),
+        })
+    }
+}

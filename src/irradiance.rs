@@ -16,6 +16,7 @@ const PEREZ_COEFFICIENTS: [[f64; 6]; 8] = [
 ];
 
 /// Calculate the angle of incidence (AOI) of the solar vector on a surface.
+#[inline]
 pub fn aoi(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64, solar_azimuth: f64) -> f64 {
     let tilt_rad = surface_tilt.to_radians();
     let surf_az_rad = surface_azimuth.to_radians();
@@ -30,6 +31,7 @@ pub fn aoi(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64, solar_azi
 }
 
 /// Calculate extraterrestrial solar irradiance for a day of year (Spencer 1971).
+#[inline]
 pub fn get_extra_radiation(dayofyear: i32) -> f64 {
     let b = 2.0 * PI * ((dayofyear - 1) as f64) / 365.0;
     let rover_r0_sqrd = 1.00011
@@ -41,6 +43,7 @@ pub fn get_extra_radiation(dayofyear: i32) -> f64 {
 }
 
 /// Isotropic diffuse model.
+#[inline]
 pub fn isotropic(surface_tilt: f64, dhi: f64) -> f64 {
     dhi * (1.0 + surface_tilt.to_radians().cos()) / 2.0
 }
@@ -50,6 +53,7 @@ pub fn isotropic(surface_tilt: f64, dhi: f64) -> f64 {
 /// # References
 /// Hay, J.E. and Davies, J.A., 1980, "Calculations of the solar radiation incident on an inclined surface", 
 /// in Proceedings of the First Canadian Solar Radiation Data Workshop.
+#[inline]
 pub fn haydavies(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, _solar_azimuth: f64, aoi_in: f64) -> f64 {
     let mut a = 0.0;
     if dni_extra > 0.0 {
@@ -70,6 +74,7 @@ pub fn haydavies(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, d
 /// # References
 /// Klucher, T.M., 1979, "Evaluation of models to predict insolation on tilted surfaces," 
 /// Solar Energy, 23(2), pp. 111-114.
+#[inline]
 pub fn klucher(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, ghi: f64, solar_zenith: f64, _solar_azimuth: f64, aoi_in: f64) -> f64 {
     let mut f = 0.0;
     if ghi > 0.0 {
@@ -94,6 +99,7 @@ pub fn klucher(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, ghi: f64, sol
 /// Perez, R., Ineichen, P., Seals, R., Michalsky, J. and Stewart, R., 1990, 
 /// "Modeling daylight availability and irradiance components from direct and global irradiance," 
 /// Solar Energy, 44(5), pp. 271-289.
+#[inline]
 pub fn perez(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, _solar_azimuth: f64, airmass: f64, aoi_in: f64) -> f64 {
     let mut cos_z = solar_zenith.to_radians().cos();
     if cos_z < 0.0436 { cos_z = 0.0436; } // cap to ~87.5 deg
@@ -135,6 +141,7 @@ pub fn perez(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_e
 /// Erbs, D.G., Klein, S.A. and Duffie, J.A., 1982, 
 /// "Estimation of the diffuse radiation fraction for hourly, daily and monthly-average global radiation," 
 /// Solar Energy, 28(4), pp. 293-302.
+#[inline]
 pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f64) {
     if ghi <= 0.0 || zenith >= 90.0 { return (0.0, 0.0); }
     let mut cos_z = zenith.to_radians().cos();
@@ -162,6 +169,7 @@ pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f
 /// # References
 /// Boland, J., Scott, L. and Luther, M., 2008. 
 /// "Modelling the diffuse fraction of global solar radiation on a horizontal surface."
+#[inline]
 pub fn boland(ghi: f64, zenith: f64, dni_extra: f64) -> (f64, f64) {
     if ghi <= 0.0 || zenith >= 90.0 { return (0.0, 0.0); }
     let cos_z = zenith.to_radians().cos().max(0.0436);
@@ -187,6 +195,7 @@ pub fn boland(ghi: f64, zenith: f64, dni_extra: f64) -> (f64, f64) {
 /// # References
 /// Perez, R., Ineichen, P., Maxwell, E., Seals, R. and Zelenka, A., 1992. 
 /// "Dynamic global-to-direct irradiance conversion models."
+#[inline]
 pub fn dirint(ghi: f64, zenith: f64, _dew_point: f64, _pressure: f64, dni_extra: f64) -> (f64, f64) {
     // In a full time-series context, DIRINT uses persistence bins. 
     // Here we approximate it by defaulting to a slightly more aggressive Erbs.
@@ -210,6 +219,7 @@ pub fn dirint(ghi: f64, zenith: f64, _dew_point: f64, _pressure: f64, dni_extra:
 }
 
 /// POA direct beam.
+#[inline]
 pub fn poa_direct(aoi_in: f64, dni: f64) -> f64 {
     let aoi_rad = aoi_in.to_radians();
     if aoi_rad.abs() > std::f64::consts::PI / 2.0 {
@@ -226,6 +236,7 @@ pub fn poa_direct(aoi_in: f64, dni: f64) -> f64 {
 /// # References
 /// Reindl, D.T., Beckman, W.A. and Duffie, J.A., 1990. "Evaluation of hourly tilt data models".
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn reindl(surface_tilt: f64, dhi: f64, ghi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, aoi_in: f64) -> f64 {
     let mut a = 0.0;
     if dni_extra > 0.0 { a = dni / dni_extra; }
@@ -247,6 +258,7 @@ pub fn reindl(surface_tilt: f64, dhi: f64, ghi: f64, dni: f64, dni_extra: f64, s
 /// Clearness Index (Kt).
 /// 
 /// The ratio of global horizontal irradiance to extraterrestrial horizontal irradiance.
+#[inline]
 pub fn clearness_index(ghi: f64, solar_zenith: f64, dni_extra: f64) -> f64 {
     let cos_z = solar_zenith.to_radians().cos().max(0.01);
     let ghi_extra = dni_extra * cos_z;
@@ -257,6 +269,7 @@ pub fn clearness_index(ghi: f64, solar_zenith: f64, dni_extra: f64) -> f64 {
 ///
 /// # References
 /// Perez, R. et al., 1990. "Making full use of the clearness index for parameterizing hourly insolation conditions."
+#[inline]
 pub fn clearness_index_zenith_independent(clearness_idx: f64, _solar_zenith: f64, airmass_absolute: f64) -> f64 {
     let am = airmass_absolute.max(1.0);
     // Approximation of the geometric zenith independence formula
@@ -272,6 +285,7 @@ pub fn clearness_index_zenith_independent(clearness_idx: f64, _solar_zenith: f64
 ///
 /// # References
 /// Same geometry as [`aoi`], but returns cos(AOI) without taking arccos.
+#[inline]
 pub fn aoi_projection(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64, solar_azimuth: f64) -> f64 {
     let tilt_rad = surface_tilt.to_radians();
     let surf_az_rad = surface_azimuth.to_radians();
@@ -294,6 +308,7 @@ pub fn aoi_projection(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64
 /// - `solar_zenith`: Solar zenith angle [degrees]
 /// - `solar_azimuth`: Solar azimuth angle [degrees]
 /// - `dni`: Direct normal irradiance [W/m²]
+#[inline]
 pub fn beam_component(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64, solar_azimuth: f64, dni: f64) -> f64 {
     let proj = aoi_projection(surface_tilt, surface_azimuth, solar_zenith, solar_azimuth);
     (dni * proj).max(0.0)
@@ -312,6 +327,7 @@ pub fn beam_component(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64
 /// Loutzenhiser P.G. et al., 2007, "Empirical validation of models to compute
 /// solar irradiance on inclined surfaces for building energy simulation",
 /// Solar Energy vol. 81, pp. 254-267.
+#[inline]
 pub fn get_ground_diffuse(surface_tilt: f64, ghi: f64, albedo: f64) -> f64 {
     ghi * albedo * (1.0 - surface_tilt.to_radians().cos()) * 0.5
 }
@@ -342,6 +358,7 @@ pub struct PoaComponents {
 /// - `dni`: Direct normal irradiance [W/m²]
 /// - `poa_sky_diffuse`: Sky diffuse irradiance in the plane of array [W/m²]
 /// - `poa_ground_diffuse`: Ground-reflected irradiance in the plane of array [W/m²]
+#[inline]
 pub fn poa_components(aoi_val: f64, dni: f64, poa_sky_diffuse: f64, poa_ground_diffuse: f64) -> PoaComponents {
     let poa_direct = (dni * aoi_val.to_radians().cos()).max(0.0);
     let poa_diffuse = poa_sky_diffuse + poa_ground_diffuse;
@@ -386,6 +403,7 @@ pub enum DiffuseModel {
 /// - `dni_extra`: Extraterrestrial DNI [W/m²] (required for HayDavies, Reindl, Perez)
 /// - `airmass`: Relative airmass (required for Perez)
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn get_sky_diffuse(
     surface_tilt: f64,
     surface_azimuth: f64,
@@ -435,6 +453,7 @@ pub fn get_sky_diffuse(
 /// - `dni_extra`: Extraterrestrial DNI [W/m²] (required for HayDavies, Reindl, Perez)
 /// - `airmass`: Relative airmass (required for Perez)
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn get_total_irradiance(
     surface_tilt: f64,
     surface_azimuth: f64,
@@ -512,6 +531,7 @@ fn disc_kn(kt: f64, am: f64) -> (f64, f64) {
 /// Maxwell, E. L., 1987, "A Quasi-Physical Model for Converting Hourly
 /// Global Horizontal to Direct Normal Insolation", Technical Report
 /// No. SERI/TR-215-3087, Golden, CO: Solar Energy Research Institute.
+#[inline]
 pub fn disc(ghi: f64, solar_zenith: f64, day_of_year: i32, pressure: Option<f64>) -> DiscOutput {
     let max_zenith = 87.0;
     let min_cos_zenith = 0.065;
@@ -579,6 +599,7 @@ pub struct ErbsDriesseOutput {
 /// Driesse, A., Jensen, A., Perez, R., 2024. A Continuous form of the
 /// Perez diffuse sky model for forward and reverse transposition.
 /// Solar Energy vol. 267. doi:10.1016/j.solener.2023.112093
+#[inline]
 pub fn erbs_driesse(ghi: f64, solar_zenith: f64, day_of_year: i32) -> ErbsDriesseOutput {
     let max_zenith = 87.0;
     let min_cos_zenith = 0.065;
@@ -628,6 +649,7 @@ pub fn erbs_driesse(ghi: f64, solar_zenith: f64, day_of_year: i32) -> ErbsDriess
 /// - `dhi`: Diffuse horizontal irradiance [W/m²]
 /// - `ghi`: Global horizontal irradiance [W/m²]
 /// - `solar_zenith`: Apparent (refraction-corrected) solar zenith angle [degrees]
+#[inline]
 pub fn king(surface_tilt: f64, dhi: f64, ghi: f64, solar_zenith: f64) -> f64 {
     let cos_tilt = surface_tilt.to_radians().cos();
     let sky_diffuse = dhi * (1.0 + cos_tilt) / 2.0
@@ -653,6 +675,7 @@ pub fn king(surface_tilt: f64, dhi: f64, ghi: f64, solar_zenith: f64) -> f64 {
 /// Perez, R., Ineichen, P., Moore, K., Kmiecik, M., Chain, C., George, R.,
 /// & Vignola, F. (2002). A new operational model for satellite-derived
 /// irradiances: description and validation. Solar Energy, 73(5), 307-317.
+#[inline]
 pub fn dirindex(
     ghi: f64,
     ghi_clearsky: f64,
@@ -839,6 +862,7 @@ fn pd_f(i: usize, j: usize, zeta: f64) -> f64 {
 /// Perez diffuse sky model for forward and reverse transposition.
 /// Solar Energy vol. 267. doi:10.1016/j.solener.2023.112093
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn perez_driesse(
     surface_tilt: f64,
     surface_azimuth: f64,

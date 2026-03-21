@@ -11,6 +11,7 @@
 ///
 /// # Returns
 /// AC power output (W).
+#[inline]
 pub fn pvwatts_ac(pdc: f64, pdc0: f64, eta_inv_nom: f64, eta_inv_ref: f64) -> f64 {
     if pdc <= 0.0 || pdc0 <= 0.0 {
         return 0.0;
@@ -36,6 +37,7 @@ pub fn pvwatts_ac(pdc: f64, pdc0: f64, eta_inv_nom: f64, eta_inv_ref: f64) -> f6
 ///
 /// # Returns
 /// AC power output (W).
+#[inline]
 pub fn pvwatts_multi(pdc: &[f64], pdc0: f64, eta_inv_nom: f64, eta_inv_ref: f64) -> f64 {
     let total_pdc: f64 = pdc.iter().sum();
     pvwatts_ac(total_pdc, pdc0, eta_inv_nom, eta_inv_ref)
@@ -81,6 +83,7 @@ fn sandia_eff(
 ///
 /// # Returns
 /// AC power output in Watts.
+#[inline]
 pub fn sandia(
     v_dc: f64, p_dc: f64,
     p_aco: f64, p_dco: f64, v_dco: f64, p_so: f64,
@@ -121,6 +124,7 @@ fn sandia_limits(power_ac: f64, p_dc: f64, p_aco: f64, p_nt: f64, p_so: f64) -> 
 ///
 /// # Panics
 /// Panics if `v_dc` and `p_dc` have different lengths.
+#[inline]
 pub fn sandia_multi(
     v_dc: &[f64], p_dc: &[f64],
     p_aco: f64, p_dco: f64, v_dco: f64, p_so: f64,
@@ -149,6 +153,7 @@ pub fn sandia_multi(
 ///
 /// # References
 /// Driesse, A. et al., 2020. "Beyond PVWatts: A streamlined PV grid-connected inverter model."
+#[inline]
 pub fn adr(v_dc: f64, p_dc: f64, p_nom: f64, v_nom: f64, adr_coeffs: [f64; 6]) -> f64 {
     let v_ratio = v_dc / v_nom.max(0.1);
     let p_ratio = p_dc / p_nom.max(0.1);

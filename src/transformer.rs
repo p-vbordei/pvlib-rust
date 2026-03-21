@@ -10,6 +10,7 @@
 ///
 /// # Returns
 /// Real AC power output in W.
+#[inline]
 pub fn simple_efficiency(
     input_power: f64,
     transformer_rating: f64,

@@ -24,6 +24,7 @@ pub struct BirdResult {
 /// 
 /// # Returns
 /// GHI in W/m^2. Returns 0.0 for zenith >= 90.
+#[inline]
 pub fn haurwitz(zenith: f64) -> f64 {
     if zenith >= 90.0 {
         return 0.0;
@@ -49,6 +50,7 @@ pub fn haurwitz(zenith: f64) -> f64 {
 /// 
 /// # Returns
 /// A `ClearSkyIrradiance` struct containing GHI, DNI, and DHI in W/m^2.
+#[inline]
 pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitude: f64) -> ClearSkyIrradiance {
     if zenith >= 90.0 || airmass_absolute <= 0.0 {
         return ClearSkyIrradiance { ghi: 0.0, dni: 0.0, dhi: 0.0 };
@@ -111,6 +113,7 @@ pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitu
 ///
 /// # Returns
 /// A `ClearSkyIrradiance` struct containing GHI, DNI, and DHI in W/m^2.
+#[inline]
 pub fn simplified_solis(apparent_elevation: f64, aod700: f64, precipitable_water: f64, pressure: f64) -> ClearSkyIrradiance {
     if apparent_elevation <= 0.0 {
         return ClearSkyIrradiance { ghi: 0.0, dni: 0.0, dhi: 0.0 };
@@ -195,6 +198,7 @@ pub fn simplified_solis(apparent_elevation: f64, aod700: f64, precipitable_water
 /// # References
 /// Reno, M.J. and Hansen, C.W., 2016. "Identification of periods of clear sky
 /// irradiance in time series of GHI measurements."
+#[inline]
 pub fn detect_clearsky(ghi: f64, clearsky_ghi: f64, _window_length: usize) -> bool {
     // In scalar mode, we do a basic threshold check (e.g., within 10% of expected clearsky)
     if clearsky_ghi <= 0.0 || ghi <= 0.0 {
@@ -226,6 +230,7 @@ pub fn detect_clearsky(ghi: f64, clearsky_ghi: f64, _window_length: usize) -> bo
 /// # References
 /// R. E. Bird and R. L. Hulstrom, "A Simplified Clear Sky model for
 /// Direct and Diffuse Insolation on Horizontal Surfaces", SERI/TR-642-761, 1981.
+#[inline]
 pub fn bird(
     zenith: f64,
     airmass_relative: f64,
@@ -317,6 +322,7 @@ pub fn bird(
 /// Bird model with default parameters for ozone, pressure, dni_extra, asymmetry, and albedo.
 ///
 /// Convenience wrapper using: ozone=0.3, pressure=101325, dni_extra=1364, asymmetry=0.85, albedo=0.2.
+#[inline]
 pub fn bird_default(
     zenith: f64,
     airmass_relative: f64,
@@ -350,6 +356,7 @@ pub fn bird_default(
 ///
 /// # Returns
 /// Approximate Linke turbidity factor (typically 2.0 to 7.0).
+#[inline]
 pub fn lookup_linke_turbidity(latitude: f64, longitude: f64, month: u32) -> f64 {
     let abs_lat = latitude.abs();
 

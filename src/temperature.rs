@@ -11,6 +11,7 @@
 /// 
 /// # Returns
 /// A tuple of `(temp_cell, temp_module)` in Celsius.
+#[inline]
 pub fn sapm_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, a: f64, b: f64, delta_t: f64, irrad_ref: f64) -> (f64, f64) {
     if poa_global <= 0.0 {
         return (temp_air, temp_air);
@@ -35,6 +36,7 @@ pub fn sapm_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, a:
 /// 
 /// # Returns
 /// Cell temperature in Celsius.
+#[inline]
 pub fn pvsyst_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, u_c: f64, u_v: f64, module_efficiency: f64, alpha_absorption: f64) -> f64 {
     if poa_global <= 0.0 {
         return temp_air;
@@ -56,6 +58,7 @@ pub fn pvsyst_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, 
 /// * `wind_speed` - Wind speed in m/s.
 /// * `u0` - Constant heat transfer coefficient (typically 25.0).
 /// * `u1` - Convective heat transfer coefficient (typically 6.84).
+#[inline]
 pub fn faiman(poa_global: f64, temp_air: f64, wind_speed: f64, u0: f64, u1: f64) -> f64 {
     if poa_global <= 0.0 {
         return temp_air;
@@ -70,6 +73,7 @@ pub fn faiman(poa_global: f64, temp_air: f64, wind_speed: f64, u0: f64, u1: f64)
 /// 
 /// # References
 /// Fuentes, M.K., 1987. "A simplified thermal model for flat-plate photovoltaic arrays".
+#[inline]
 pub fn fuentes(poa_global: f64, temp_air: f64, wind_speed: f64, inoct: f64) -> f64 {
     // Simplified equilibrium approximation (actual is differential eq over time)
     if poa_global <= 0.0 { return temp_air; }
@@ -81,6 +85,7 @@ pub fn fuentes(poa_global: f64, temp_air: f64, wind_speed: f64, inoct: f64) -> f
 ///
 /// # References
 /// Ross, R. G., 1980. "Flat-Plate Photovoltaic Array Design Optimization".
+#[inline]
 pub fn ross(poa_global: f64, temp_air: f64, inoct: f64) -> f64 {
     if poa_global <= 0.0 {
         return temp_air;
@@ -105,11 +110,13 @@ pub fn ross(poa_global: f64, temp_air: f64, inoct: f64) -> f64 {
 ///
 /// # References
 /// King, D. et al, 2004, "Sandia Photovoltaic Array Performance Model", SAND Report 3535.
+#[inline]
 pub fn sapm_module(poa_global: f64, temp_air: f64, wind_speed: f64, a: f64, b: f64) -> f64 {
     poa_global * (a + b * wind_speed).exp() + temp_air
 }
 
 /// SAPM module temperature with default parameters (glass/polymer, open rack).
+#[inline]
 pub fn sapm_module_default(poa_global: f64, temp_air: f64, wind_speed: f64) -> f64 {
     sapm_module(poa_global, temp_air, wind_speed, -3.56, -0.0750)
 }
@@ -129,11 +136,13 @@ pub fn sapm_module_default(poa_global: f64, temp_air: f64, wind_speed: f64) -> f
 ///
 /// # References
 /// King, D. et al, 2004, "Sandia Photovoltaic Array Performance Model", SAND Report 3535.
+#[inline]
 pub fn sapm_cell_from_module(module_temperature: f64, poa_global: f64, delta_t: f64, irrad_ref: f64) -> f64 {
     module_temperature + poa_global / irrad_ref * delta_t
 }
 
 /// SAPM cell from module with default parameters (delta_t=3, irrad_ref=1000).
+#[inline]
 pub fn sapm_cell_from_module_default(module_temperature: f64, poa_global: f64) -> f64 {
     sapm_cell_from_module(module_temperature, poa_global, 3.0, 1000.0)
 }
@@ -181,6 +190,7 @@ fn adj_for_mounting_standoff(x: f64) -> f64 {
 ///
 /// # References
 /// Gilman, P. et al, 2018, "SAM Photovoltaic Model Technical Reference Update", NREL/TP-6A20-67399.
+#[inline]
 pub fn noct_sam(
     poa_global: f64,
     temp_air: f64,
@@ -208,6 +218,7 @@ pub fn noct_sam(
 }
 
 /// NOCT SAM with default parameters (transmittance_absorptance=0.9, array_height=1, mount_standoff=4.0).
+#[inline]
 pub fn noct_sam_default(
     poa_global: f64,
     temp_air: f64,
@@ -237,6 +248,7 @@ pub fn noct_sam_default(
 /// # References
 /// Driesse, A. et al, 2022, "PV Module Operating Temperature Model Equivalence
 /// and Parameter Translation", IEEE PVSC.
+#[inline]
 pub fn generic_linear(
     poa_global: f64,
     temp_air: f64,
@@ -252,6 +264,7 @@ pub fn generic_linear(
 }
 
 /// Generic linear model with default parameters (u_c=29.0, u_v=0.0, efficiency=0.15, absorptance=0.9).
+#[inline]
 pub fn generic_linear_default(poa_global: f64, temp_air: f64, wind_speed: f64) -> f64 {
     generic_linear(poa_global, temp_air, wind_speed, 29.0, 0.0, 0.15, 0.9)
 }

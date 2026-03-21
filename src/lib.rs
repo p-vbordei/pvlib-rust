@@ -21,3 +21,4 @@ pub mod albedo;
 pub mod pvarray;
 pub mod transformer;
 pub mod ivtools;
+pub mod batch;

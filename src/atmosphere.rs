@@ -2,6 +2,7 @@
 /// 
 /// # Arguments
 /// * `zenith` - True or apparent zenith angle in degrees.
+#[inline]
 pub fn get_relative_airmass(zenith: f64) -> f64 {
     // Avoid calculating for zenith severely > 90 to prevent math errors.
     // However, the formula can technically handle slightly above 90 before going negative.
@@ -27,11 +28,13 @@ pub fn get_relative_airmass(zenith: f64) -> f64 {
 
 /// Calculate atmospheric pressure (Pascals) from altitude (meters)
 /// using the standard atmosphere model.
+#[inline]
 pub fn alt2pres(altitude: f64) -> f64 {
     101325.0 * (1.0 - 2.25577e-5 * altitude).powf(5.25588)
 }
 
 /// Calculate absolute airmass given relative airmass and pressure (Pascals).
+#[inline]
 pub fn get_absolute_airmass(airmass_relative: f64, pressure: f64) -> f64 {
     airmass_relative * pressure / 101325.0
 }
@@ -43,6 +46,7 @@ pub fn get_absolute_airmass(airmass_relative: f64, pressure: f64) -> f64 {
 ///
 /// # Returns
 /// Altitude above sea level in meters.
+#[inline]
 pub fn pres2alt(pressure: f64) -> f64 {
     44331.5 - 4946.62 * pressure.powf(0.190263)
 }
@@ -56,6 +60,7 @@ pub fn pres2alt(pressure: f64) -> f64 {
 ///
 /// # Returns
 /// Precipitable water in cm (minimum 0.1).
+#[inline]
 pub fn gueymard94_pw(temp_air: f64, relative_humidity: f64) -> f64 {
     let t = temp_air + 273.15; // Kelvin
     let rh = relative_humidity;
@@ -83,6 +88,7 @@ pub fn gueymard94_pw(temp_air: f64, relative_humidity: f64) -> f64 {
 ///
 /// # Returns
 /// Dew point temperature in degrees C.
+#[inline]
 pub fn tdew_from_rh(temperature: f64, rh: f64) -> f64 {
     const B: f64 = 17.62;
     const C: f64 = 243.12;
@@ -100,6 +106,7 @@ pub fn tdew_from_rh(temperature: f64, rh: f64) -> f64 {
 ///
 /// # Returns
 /// Relative humidity in percent (0-100).
+#[inline]
 pub fn rh_from_tdew(temperature: f64, temp_dew: f64) -> f64 {
     const B: f64 = 17.62;
     const C: f64 = 243.12;
@@ -117,6 +124,7 @@ pub fn rh_from_tdew(temperature: f64, temp_dew: f64) -> f64 {
 ///
 /// # Returns
 /// Broadband AOD.
+#[inline]
 pub fn bird_hulstrom80_aod_bb(aod380: f64, aod500: f64) -> f64 {
     0.27583 * aod380 + 0.35 * aod500
 }
@@ -130,6 +138,7 @@ pub fn bird_hulstrom80_aod_bb(aod380: f64, aod500: f64) -> f64 {
 ///
 /// # Returns
 /// Linke turbidity factor.
+#[inline]
 pub fn kasten96_lt(airmass: f64, precipitable_water: f64, aod_bb: f64) -> f64 {
     let delta_cda = -0.101 + 0.235 * airmass.powf(-0.16);
     let delta_w = 0.112 * airmass.powf(-0.55) * precipitable_water.powf(0.34);
@@ -150,6 +159,7 @@ pub fn kasten96_lt(airmass: f64, precipitable_water: f64, aod_bb: f64) -> f64 {
 ///
 /// # Returns
 /// AOD at desired wavelength.
+#[inline]
 pub fn angstrom_aod_at_lambda(aod0: f64, lambda0: f64, alpha: f64, lambda1: f64) -> f64 {
     aod0 * (lambda1 / lambda0).powf(-alpha)
 }
@@ -164,6 +174,7 @@ pub fn angstrom_aod_at_lambda(aod0: f64, lambda0: f64, alpha: f64, lambda1: f64)
 ///
 /// # Returns
 /// Angstrom alpha exponent.
+#[inline]
 pub fn angstrom_alpha(aod1: f64, lambda1: f64, aod2: f64, lambda2: f64) -> f64 {
     -(aod1 / aod2).ln() / (lambda1 / lambda2).ln()
 }
@@ -178,6 +189,7 @@ pub fn angstrom_alpha(aod1: f64, lambda1: f64, aod2: f64, lambda2: f64) -> f64 {
 ///
 /// # Returns
 /// Wind speed at desired height in m/s.
+#[inline]
 pub fn windspeed_powerlaw(wind_speed: f64, height_ref: f64, height_desired: f64, alpha: f64) -> f64 {
     if wind_speed < 0.0 || height_ref <= 0.0 || height_desired <= 0.0 {
         return f64::NAN;
@@ -194,6 +206,7 @@ pub fn windspeed_powerlaw(wind_speed: f64, height_ref: f64, height_desired: f64,
 /// 
 /// # Returns
 /// Atmospheric refraction in degrees to add to true elevation.
+#[inline]
 pub fn get_refraction(true_elevation: f64) -> f64 {
     let e = true_elevation;
     if e >= 85.0 {

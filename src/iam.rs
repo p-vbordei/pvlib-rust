@@ -8,6 +8,7 @@
 /// 
 /// # Returns
 /// IAM multiplier (dimensionless).
+#[inline]
 pub fn ashrae(aoi: f64, b0: f64) -> f64 {
     let aoi_rad = aoi.to_radians();
     if aoi_rad >= std::f64::consts::PI / 2.0 {
@@ -30,6 +31,7 @@ pub fn ashrae(aoi: f64, b0: f64) -> f64 {
 /// 
 /// # Returns
 /// IAM multiplier (dimensionless).
+#[inline]
 pub fn martin_ruiz(aoi: f64, a_r: f64) -> f64 {
     if aoi >= 90.0 {
         return 0.0;
@@ -57,6 +59,7 @@ pub fn martin_ruiz(aoi: f64, a_r: f64) -> f64 {
 ///
 /// # Returns
 /// IAM multiplier (dimensionless).
+#[inline]
 pub fn physical(aoi: f64, n: f64, k: f64, l: f64) -> f64 {
     if aoi.is_nan() {
         return f64::NAN;
@@ -106,6 +109,7 @@ pub fn physical(aoi: f64, n: f64, k: f64, l: f64) -> f64 {
 ///
 /// # Returns
 /// IAM multiplier (dimensionless).
+#[inline]
 pub fn schlick(aoi: f64) -> f64 {
     if aoi.abs() >= 90.0 {
         return 0.0;
@@ -124,6 +128,7 @@ pub fn schlick(aoi: f64) -> f64 {
 ///
 /// # Returns
 /// Tuple of (iam_sky, iam_ground).
+#[inline]
 pub fn schlick_diffuse(surface_tilt: f64) -> (f64, f64) {
     let cos_b = surface_tilt.to_radians().cos();
     let sin_b = surface_tilt.to_radians().sin();
@@ -159,6 +164,7 @@ pub fn schlick_diffuse(surface_tilt: f64) -> (f64, f64) {
 ///
 /// # Returns
 /// Tuple of (iam_sky, iam_ground).
+#[inline]
 pub fn martin_ruiz_diffuse(surface_tilt: f64, a_r: f64) -> (f64, f64) {
     let pi = std::f64::consts::PI;
 
@@ -196,6 +202,7 @@ pub fn martin_ruiz_diffuse(surface_tilt: f64, a_r: f64) -> (f64, f64) {
 /// # References
 /// King, D. et al., 2004, "Sandia Photovoltaic Array Performance Model".
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn sapm(aoi: f64, b0: f64, b1: f64, b2: f64, b3: f64, b4: f64, b5: f64) -> f64 {
     if !(0.0..=90.0).contains(&aoi) { return 0.0; }
     

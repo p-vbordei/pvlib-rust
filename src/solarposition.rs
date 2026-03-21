@@ -18,6 +18,7 @@ pub struct SolarPosition {
 
 /// Calculate the solar position for a given location and time.
 /// This uses the NREL SPA (Solar Position Algorithm).
+#[inline]
 pub fn get_solarposition(location: &Location, time: DateTime<Tz>) -> Result<SolarPosition, SpaError> {
     let utc_time: DateTime<Utc> = time.with_timezone(&Utc);
 
@@ -43,6 +44,7 @@ fn calculate_simple_day_angle(day_of_year: f64, offset: f64) -> f64 {
 /// Equation of time in minutes using Spencer (1971) / Iqbal (1983) Fourier series.
 ///
 /// Returns the difference between solar time and mean solar time in minutes.
+#[inline]
 pub fn equation_of_time_spencer71(day_of_year: f64) -> f64 {
     let day_angle = calculate_simple_day_angle(day_of_year, 1.0);
     (1440.0 / (2.0 * PI))
@@ -56,6 +58,7 @@ pub fn equation_of_time_spencer71(day_of_year: f64) -> f64 {
 /// Equation of time in minutes from PVCDROM / PV Education.
 ///
 /// Returns the difference between solar time and mean solar time in minutes.
+#[inline]
 pub fn equation_of_time_pvcdrom(day_of_year: f64) -> f64 {
     let bday = calculate_simple_day_angle(day_of_year, 1.0) - (2.0 * PI / 365.0) * 80.0;
     9.87 * (2.0 * bday).sin() - 7.53 * bday.cos() - 1.5 * bday.sin()
@@ -67,6 +70,7 @@ pub fn equation_of_time_pvcdrom(day_of_year: f64) -> f64 {
 ///
 /// Returns the angular position of the sun at solar noon relative to
 /// the plane of the equator, approximately +/-23.45 degrees.
+#[inline]
 pub fn declination_spencer71(day_of_year: f64) -> f64 {
     let day_angle = calculate_simple_day_angle(day_of_year, 1.0);
     0.006918
@@ -81,6 +85,7 @@ pub fn declination_spencer71(day_of_year: f64) -> f64 {
 /// Solar declination in radians using Cooper (1969).
 ///
 /// delta = 23.45 * sin(2*pi*(284+doy)/365) converted to radians.
+#[inline]
 pub fn declination_cooper69(day_of_year: f64) -> f64 {
     let day_angle = calculate_simple_day_angle(day_of_year, 1.0);
     (23.45_f64).to_radians() * (day_angle + (2.0 * PI / 365.0) * 285.0).sin()
@@ -94,6 +99,7 @@ pub fn declination_cooper69(day_of_year: f64) -> f64 {
 /// `longitude` is in degrees. `equation_of_time` is in minutes.
 ///
 /// HA = 15 * (hours - 12) + longitude + eot/4
+#[inline]
 pub fn hour_angle(hours_from_midnight_utc: f64, longitude: f64, equation_of_time: f64) -> f64 {
     15.0 * (hours_from_midnight_utc - 12.0) + longitude + equation_of_time / 4.0
 }
@@ -103,6 +109,7 @@ pub fn hour_angle(hours_from_midnight_utc: f64, longitude: f64, equation_of_time
 /// Solar zenith angle in radians from analytical spherical trigonometry.
 ///
 /// All inputs are in radians.
+#[inline]
 pub fn solar_zenith_analytical(latitude: f64, hour_angle: f64, declination: f64) -> f64 {
     let cos_zenith = declination.cos() * latitude.cos() * hour_angle.cos()
         + declination.sin() * latitude.sin();
@@ -113,6 +120,7 @@ pub fn solar_zenith_analytical(latitude: f64, hour_angle: f64, declination: f64)
 /// Solar azimuth angle in radians from analytical spherical trigonometry.
 ///
 /// All inputs are in radians. Returns azimuth measured from north (0) clockwise.
+#[inline]
 pub fn solar_azimuth_analytical(
     latitude: f64,
     hour_angle: f64,
@@ -171,6 +179,7 @@ pub struct SunRiseSetTransit {
 ///
 /// Returns sunrise, sunset, and transit as fractional hours from local midnight.
 /// Returns `None` if the sun never rises or never sets (polar day/night).
+#[inline]
 pub fn sun_rise_set_transit_geometric(
     latitude: f64,
     longitude: f64,
@@ -209,6 +218,7 @@ pub fn sun_rise_set_transit_geometric(
 /// Earth-sun distance in AU using Spencer (1971).
 ///
 /// Uses the Fourier series for the reciprocal squared of the earth-sun distance.
+#[inline]
 pub fn nrel_earthsun_distance(day_of_year: f64) -> f64 {
     let day_angle = calculate_simple_day_angle(day_of_year, 1.0);
     let r_over_r0_squared = 1.000110
