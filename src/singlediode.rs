@@ -315,11 +315,12 @@ pub fn bishop88_v_from_i(current: f64, p: &Bishop88Params) -> f64 {
 /// Searches for diode voltage where dP/dV = 0.
 pub fn bishop88_mpp(p: &Bishop88Params) -> Bishop88Output {
     let voc_est = estimate_voc(p.photocurrent, p.saturation_current, p.n_ns_vth);
-    // Start at Voc estimate, matching Python's x0 = xp
-    let mut vd = if voc_est < p.ns_vbi {
-        voc_est
-    } else {
+    // Start at Voc estimate. Only clamp to ns_vbi when breakdown modeling
+    // is active (ns_vbi > 0); otherwise use the Voc estimate directly.
+    let mut vd = if p.ns_vbi > 0.0 && voc_est >= p.ns_vbi {
         0.9999 * p.ns_vbi
+    } else {
+        voc_est
     };
 
     for _ in 0..NEWTON_MAXITER {
