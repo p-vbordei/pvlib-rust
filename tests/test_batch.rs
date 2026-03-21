@@ -370,6 +370,108 @@ fn test_batch_modelchain_basic() {
 }
 
 // ---------------------------------------------------------------------------
+// BatchModelChain vs scalar pipeline equivalence
+// ---------------------------------------------------------------------------
+
+/// Assert two f64 values are bitwise identical, treating NaN == NaN as true.
+fn assert_f64_identical(left: f64, right: f64, label: &str, index: usize) {
+    if left.is_nan() && right.is_nan() {
+        return; // both NaN is considered equal here
+    }
+    assert_eq!(left, right, "{} mismatch at timestep {}", label, index);
+}
+
+#[test]
+fn test_batch_modelchain_matches_scalar_pipeline() {
+    let loc = tucson();
+    let surface_tilt = 30.0;
+    let surface_azimuth = 180.0;
+    let system_capacity_dc = 5000.0;
+    let gamma_pdc = -0.004;
+    let inverter_efficiency = 0.96;
+    let albedo = 0.2;
+    let transposition_model = irradiance::DiffuseModel::Perez;
+
+    let chain = batch::BatchModelChain::pvwatts(loc.clone(), surface_tilt, surface_azimuth, system_capacity_dc);
+
+    // 5 distinct daytime timestamps with realistic weather.
+    // All times are chosen so the sun is well above the horizon for
+    // Tucson (lat 32.2) to avoid NaN from pre-dawn / post-sunset conditions.
+    let times = vec![
+        Eastern.with_ymd_and_hms(2020, 3, 21, 12, 0, 0).unwrap(),
+        Eastern.with_ymd_and_hms(2020, 6, 15, 10, 0, 0).unwrap(),
+        Eastern.with_ymd_and_hms(2020, 6, 15, 12, 0, 0).unwrap(),
+        Eastern.with_ymd_and_hms(2020, 9, 22, 13, 0, 0).unwrap(),
+        Eastern.with_ymd_and_hms(2020, 12, 21, 12, 0, 0).unwrap(),
+    ];
+    let ghi_vals   = vec![650.0, 700.0, 950.0, 700.0, 500.0];
+    let dni_vals   = vec![550.0, 600.0, 850.0, 600.0, 400.0];
+    let dhi_vals   = vec![100.0, 100.0, 100.0, 100.0,  100.0];
+    let temp_vals  = vec![ 18.0,  28.0,  32.0,  26.0,  12.0];
+    let wind_vals  = vec![  3.0,   2.0,   1.5,   2.5,   4.0];
+
+    let weather = batch::WeatherSeries {
+        times: times.clone(),
+        ghi: ghi_vals.clone(),
+        dni: dni_vals.clone(),
+        dhi: dhi_vals.clone(),
+        temp_air: temp_vals.clone(),
+        wind_speed: wind_vals.clone(),
+        albedo: None,
+    };
+
+    let batch_result = chain.run(&weather).unwrap();
+
+    // Reproduce the scalar pipeline for each timestep identically to
+    // BatchModelChain::run() (see src/batch.rs lines 423-479).
+    let pressure = atmosphere::alt2pres(loc.altitude);
+    for i in 0..times.len() {
+        let solpos = pvlib::solarposition::get_solarposition(&loc, times[i]).unwrap();
+
+        let am_rel = atmosphere::get_relative_airmass(solpos.zenith);
+        let am_abs = if am_rel.is_nan() || am_rel <= 0.0 {
+            0.0
+        } else {
+            atmosphere::get_absolute_airmass(am_rel, pressure)
+        };
+
+        let aoi_val = irradiance::aoi(surface_tilt, surface_azimuth, solpos.zenith, solpos.azimuth);
+
+        let doy: i32 = times[i].format("%j").to_string().parse().unwrap_or(1);
+        let dni_extra = irradiance::get_extra_radiation(doy);
+
+        let poa = irradiance::get_total_irradiance(
+            surface_tilt, surface_azimuth,
+            solpos.zenith, solpos.azimuth,
+            dni_vals[i], ghi_vals[i], dhi_vals[i],
+            albedo,
+            transposition_model,
+            Some(dni_extra),
+            if am_rel.is_nan() { None } else { Some(am_rel) },
+        );
+
+        let iam_val = iam::physical(aoi_val, 1.526, 4.0, 0.002);
+        let eff_irrad = (poa.poa_direct * iam_val + poa.poa_diffuse).max(0.0);
+        let t_cell = temp_vals[i] + poa.poa_global * (45.0 - 20.0) / 800.0;
+        let pdc = (system_capacity_dc * (eff_irrad / 1000.0)
+            * (1.0 + gamma_pdc * (t_cell - 25.0))).max(0.0);
+        let pac = pvlib::inverter::pvwatts_ac(pdc, system_capacity_dc, inverter_efficiency, 0.9637);
+
+        assert_f64_identical(batch_result.solar_zenith[i], solpos.zenith, "zenith", i);
+        assert_f64_identical(batch_result.solar_azimuth[i], solpos.azimuth, "azimuth", i);
+        assert_f64_identical(batch_result.airmass[i], am_abs, "airmass", i);
+        assert_f64_identical(batch_result.aoi[i], aoi_val, "aoi", i);
+        assert_f64_identical(batch_result.poa_global[i], poa.poa_global, "poa_global", i);
+        assert_f64_identical(batch_result.poa_direct[i], poa.poa_direct, "poa_direct", i);
+        assert_f64_identical(batch_result.poa_diffuse[i], poa.poa_diffuse, "poa_diffuse", i);
+        assert_f64_identical(batch_result.cell_temperature[i], t_cell, "cell_temperature", i);
+        assert_f64_identical(batch_result.effective_irradiance[i], eff_irrad, "effective_irradiance", i);
+        assert_f64_identical(batch_result.dc_power[i], pdc, "dc_power", i);
+        assert_f64_identical(batch_result.ac_power[i], pac, "ac_power", i);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // TMY Year Performance Benchmark
 // ---------------------------------------------------------------------------
 

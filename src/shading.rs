@@ -48,7 +48,7 @@ pub fn masking_angle_passias(surface_tilt: f64, gcr: f64) -> f64 {
     let sin_b = beta.sin();
     let cos_b = beta.cos();
 
-    if sin_b.abs() < 1e-10 {
+    if sin_b.abs() < 1e-10 || gcr <= 0.0 {
         return 0.0;
     }
 
@@ -139,20 +139,22 @@ pub fn shaded_fraction1d(
     let thetas_2_s_diff = shaded_row_rotation - psza;
     let theta_s_rotation_diff = psza - cross_axis_slope;
 
-    let cos_theta_2_s_diff_abs = thetas_2_s_diff.to_radians().cos().abs();
+    let cos_theta_2_s_diff_abs = thetas_2_s_diff.to_radians().cos().abs().max(1e-6);
+    let collector_width_safe = collector_width.max(1e-6);
+    let cross_axis_cos = cross_axis_slope.to_radians().cos().max(1e-6);
 
     // Eq. (12) from Anderson & Jensen (2024)
     let t_asterisk = 0.5
         + thetas_1_s_diff.to_radians().cos().abs() / cos_theta_2_s_diff_abs / 2.0
         + (psza.signum()
             * surface_to_axis_offset
-            / collector_width
+            / collector_width_safe
             / cos_theta_2_s_diff_abs
             * (thetas_2_s_diff.to_radians().sin() - thetas_1_s_diff.to_radians().sin()))
-        - (pitch / collector_width
+        - (pitch / collector_width_safe
             * theta_s_rotation_diff.to_radians().cos()
             / cos_theta_2_s_diff_abs
-            / cross_axis_slope.to_radians().cos());
+            / cross_axis_cos);
 
     t_asterisk.clamp(0.0, 1.0)
 }

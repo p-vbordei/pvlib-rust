@@ -51,6 +51,7 @@ pub fn ineichen_batch(
     linke_turbidity: f64,
     altitude: f64,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    assert_eq!(zenith.len(), airmass_absolute.len(), "zenith and airmass_absolute must have the same length");
     let results: Vec<_> = zenith.par_iter()
         .zip(airmass_absolute.par_iter())
         .map(|(z, am)| clearsky::ineichen(*z, *am, linke_turbidity, altitude))
@@ -69,6 +70,7 @@ pub fn bird_batch(
     aod500: f64,
     precipitable_water: f64,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    assert_eq!(zenith.len(), airmass_relative.len(), "zenith and airmass_relative must have the same length");
     let results: Vec<_> = zenith.par_iter()
         .zip(airmass_relative.par_iter())
         .map(|(z, am)| clearsky::bird_default(*z, *am, aod380, aod500, precipitable_water))
@@ -90,6 +92,7 @@ pub fn aoi_batch(
     solar_zenith: &[f64],
     solar_azimuth: &[f64],
 ) -> Vec<f64> {
+    assert_eq!(solar_zenith.len(), solar_azimuth.len(), "solar_zenith and solar_azimuth must have the same length");
     solar_zenith.par_iter()
         .zip(solar_azimuth.par_iter())
         .map(|(z, a)| irradiance::aoi(surface_tilt, surface_azimuth, *z, *a))
@@ -110,6 +113,10 @@ pub fn erbs_batch(
     day_of_year: &[u32],
     dni_extra: &[f64],
 ) -> (Vec<f64>, Vec<f64>) {
+    let n = ghi.len();
+    assert_eq!(zenith.len(), n, "zenith len mismatch");
+    assert_eq!(day_of_year.len(), n, "day_of_year len mismatch");
+    assert_eq!(dni_extra.len(), n, "dni_extra len mismatch");
     let results: Vec<_> = ghi.par_iter()
         .zip(zenith.par_iter())
         .zip(day_of_year.par_iter())
@@ -128,6 +135,9 @@ pub fn disc_batch(
     day_of_year: &[i32],
     pressure: Option<f64>,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let n = ghi.len();
+    assert_eq!(solar_zenith.len(), n, "solar_zenith len mismatch");
+    assert_eq!(day_of_year.len(), n, "day_of_year len mismatch");
     let results: Vec<_> = ghi.par_iter()
         .zip(solar_zenith.par_iter())
         .zip(day_of_year.par_iter())
@@ -153,6 +163,12 @@ pub fn perez_batch(
     aoi_vals: &[f64],
 ) -> Vec<f64> {
     let n = dhi.len();
+    assert_eq!(dni.len(), n, "dni len mismatch");
+    assert_eq!(dni_extra.len(), n, "dni_extra len mismatch");
+    assert_eq!(solar_zenith.len(), n, "solar_zenith len mismatch");
+    assert_eq!(solar_azimuth.len(), n, "solar_azimuth len mismatch");
+    assert_eq!(airmass.len(), n, "airmass len mismatch");
+    assert_eq!(aoi_vals.len(), n, "aoi_vals len mismatch");
     (0..n).into_par_iter()
         .map(|i| irradiance::perez(
             surface_tilt, surface_azimuth,
@@ -179,6 +195,12 @@ pub fn total_irradiance_batch(
     airmass: &[f64],
 ) -> Vec<irradiance::PoaComponents> {
     let n = solar_zenith.len();
+    assert_eq!(solar_azimuth.len(), n, "solar_azimuth len mismatch");
+    assert_eq!(dni.len(), n, "dni len mismatch");
+    assert_eq!(ghi.len(), n, "ghi len mismatch");
+    assert_eq!(dhi.len(), n, "dhi len mismatch");
+    assert_eq!(dni_extra.len(), n, "dni_extra len mismatch");
+    assert_eq!(airmass.len(), n, "airmass len mismatch");
     (0..n).into_par_iter()
         .map(|i| irradiance::get_total_irradiance(
             surface_tilt, surface_azimuth,
@@ -204,6 +226,8 @@ pub fn sapm_cell_temperature_batch(
     a: f64, b: f64, delta_t: f64, irrad_ref: f64,
 ) -> (Vec<f64>, Vec<f64>) {
     let n = poa_global.len();
+    assert_eq!(temp_air.len(), n, "temp_air len mismatch");
+    assert_eq!(wind_speed.len(), n, "wind_speed len mismatch");
     let results: Vec<_> = (0..n).into_par_iter()
         .map(|i| temperature::sapm_cell_temperature(
             poa_global[i], temp_air[i], wind_speed[i], a, b, delta_t, irrad_ref,
@@ -223,6 +247,8 @@ pub fn faiman_batch(
     u1: f64,
 ) -> Vec<f64> {
     let n = poa_global.len();
+    assert_eq!(temp_air.len(), n, "temp_air len mismatch");
+    assert_eq!(wind_speed.len(), n, "wind_speed len mismatch");
     (0..n).into_par_iter()
         .map(|i| temperature::faiman(poa_global[i], temp_air[i], wind_speed[i], u0, u1))
         .collect()
@@ -383,10 +409,13 @@ impl BatchModelChain {
     pub fn run(&self, weather: &WeatherSeries) -> Result<SimulationSeries, spa::SpaError> {
         let n = weather.times.len();
         assert_eq!(weather.ghi.len(), n);
-        assert_eq!(weather.dni.len(), n);
-        assert_eq!(weather.dhi.len(), n);
-        assert_eq!(weather.temp_air.len(), n);
-        assert_eq!(weather.wind_speed.len(), n);
+        assert_eq!(weather.dni.len(), n, "dni len mismatch");
+        assert_eq!(weather.dhi.len(), n, "dhi len mismatch");
+        assert_eq!(weather.temp_air.len(), n, "temp_air len mismatch");
+        assert_eq!(weather.wind_speed.len(), n, "wind_speed len mismatch");
+        if let Some(albedos) = &weather.albedo {
+            assert_eq!(albedos.len(), n, "albedo len mismatch");
+        }
 
         let pressure = atmosphere::alt2pres(self.location.altitude);
         let albedo_default = self.albedo;

@@ -104,8 +104,13 @@ pub fn coverage_nrel(
     }
 
     // Determine if snow can slide: temp_air > poa_irradiance / can_slide_coefficient
-    // Note: can_slide_coefficient is negative, so this checks if conditions allow melting/sliding
-    let can_slide = temp_air > poa_irradiance / can_slide_coefficient;
+    // Note: can_slide_coefficient is typically negative
+    let safe_coeff = if can_slide_coefficient.abs() < 1e-6 {
+        if can_slide_coefficient < 0.0 { -1e-6 } else { 1e-6 }
+    } else {
+        can_slide_coefficient
+    };
+    let can_slide = temp_air > poa_irradiance / safe_coeff;
 
     let slide_amt = if can_slide {
         slide_amount_coefficient * surface_tilt.to_radians().sin() * timestep_hours
