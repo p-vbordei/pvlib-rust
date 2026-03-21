@@ -65,7 +65,8 @@ impl Location {
                 clearsky::ClearSkyIrradiance { ghi, dni: 0.0, dhi: 0.0 }
             }
             "simplified_solis" => {
-                clearsky::simplified_solis(solar_pos.zenith, 0.1, 1.0, atmosphere::alt2pres(self.altitude))
+                let apparent_elevation = 90.0 - solar_pos.zenith;
+                clearsky::simplified_solis(apparent_elevation, 0.1, 1.0, atmosphere::alt2pres(self.altitude))
             }
             _ => {
                 // Default to ineichen

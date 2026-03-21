@@ -35,14 +35,13 @@ pub fn martin_ruiz(aoi: f64, a_r: f64) -> f64 {
         return 0.0;
     }
     let aoi_rad = aoi.to_radians();
-    let _num = (-a_r * (1.0 / aoi_rad.cos() - 1.0)).exp() - (-a_r * (1.0 / std::f64::consts::PI.cos() - 1.0)).exp(); // wait, original formula uses exp(-ar * (1/cos(aoi) - 1))
-    // Let's use the standard simplified PVlib form:
-    // iam = (1 - exp(-ar*(1/cos(aoi) - 1))) / (1 - exp(-ar*(1/cos(90) - 1)))
-    // At exactly 90, it's 0.
-    // To handle 90 gracefully:
-    let exp_term = (-a_r * (1.0 / aoi_rad.cos() - 1.0)).exp();
-    // Assuming the denominator term is negligible since it approaches 0 at 90. Let's just use the nominator for simplicity:
-    exp_term.clamp(0.0, 1.0)
+    // IAM = (1 - exp(-cos(aoi) / a_r)) / (1 - exp(-1 / a_r))
+    let numerator = 1.0 - (-aoi_rad.cos() / a_r).exp();
+    let denominator = 1.0 - (-1.0 / a_r).exp();
+    if denominator == 0.0 {
+        return 1.0;
+    }
+    (numerator / denominator).clamp(0.0, 1.0)
 }
 
 /// Physical IAM model using Fresnel/Snell's law.

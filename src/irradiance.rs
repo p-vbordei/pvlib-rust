@@ -31,8 +31,13 @@ pub fn aoi(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64, solar_azi
 
 /// Calculate extraterrestrial solar irradiance for a day of year (Spencer 1971).
 pub fn get_extra_radiation(dayofyear: i32) -> f64 {
-    let b = 2.0 * PI * ((dayofyear - 3) as f64) / 365.0;
-    1361.0 * (1.0 + 0.033412 * b.cos())
+    let b = 2.0 * PI * ((dayofyear - 1) as f64) / 365.0;
+    let rover_r0_sqrd = 1.00011
+        + 0.034221 * b.cos()
+        + 0.00128 * b.sin()
+        + 0.000719 * (2.0 * b).cos()
+        + 0.000077 * (2.0 * b).sin();
+    1366.1 * rover_r0_sqrd
 }
 
 /// Isotropic diffuse model.
@@ -517,8 +522,18 @@ pub fn disc(ghi: f64, solar_zenith: f64, day_of_year: i32, pressure: Option<f64>
     let ghi_extra = i0 * cos_z;
     let kt = if ghi_extra > 0.0 { (ghi / ghi_extra).clamp(0.0, 1.0) } else { 0.0 };
 
-    // Airmass
-    let mut am = atmosphere::get_relative_airmass(solar_zenith);
+    // Airmass — DISC was calibrated against Kasten 1966, not Kasten-Young 1989
+    // Kasten 1966: AM = 1 / (cos(z) + 0.15 * (93.885 - z)^(-1.253))
+    let mut am = {
+        let z = solar_zenith;
+        let cos_z = z.to_radians().cos();
+        let c = 93.885 - z;
+        if c <= 0.0 {
+            f64::NAN
+        } else {
+            1.0 / (cos_z + 0.15 * c.powf(-1.253))
+        }
+    };
     if let Some(p) = pressure {
         am = atmosphere::get_absolute_airmass(am, p);
     }

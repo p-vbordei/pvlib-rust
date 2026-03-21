@@ -655,13 +655,13 @@ impl ModelChain {
     }
 
     fn calc_ac_power(&self, pdc: f64) -> f64 {
+        let pdc0 = self.system.get_nameplate_dc_total();
+        let eta_inv_nom = self.inverter_eta;
+        let eta_inv_ref = 0.9637;
         match self.config.ac_model {
-            ACModel::PVWatts | ACModel::Sandia | ACModel::ADR => {
-                let pdc0 = self.system.get_nameplate_dc_total();
-                let eta_inv_nom = self.inverter_eta;
-                let eta_inv_ref = 0.9637;
-                inverter::pvwatts_ac(pdc, pdc0, eta_inv_nom, eta_inv_ref)
-            }
+            ACModel::PVWatts => inverter::pvwatts_ac(pdc, pdc0, eta_inv_nom, eta_inv_ref),
+            ACModel::Sandia => inverter::pvwatts_ac(pdc, pdc0, eta_inv_nom, eta_inv_ref), // TODO: use sandia() when inverter params available
+            ACModel::ADR => inverter::pvwatts_ac(pdc, pdc0, eta_inv_nom, eta_inv_ref), // TODO: use adr() when inverter params available
         }
     }
 }

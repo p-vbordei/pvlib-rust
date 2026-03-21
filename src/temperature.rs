@@ -157,6 +157,13 @@ fn adj_for_mounting_standoff(x: f64) -> f64 {
 
 /// NOCT cell temperature model from the System Advisor Model (SAM).
 ///
+/// Note: This function assumes effective_irradiance == poa_global, i.e., no
+/// spectral or IAM losses are applied to the irradiance used for temperature
+/// calculation. This matches the common use case where effective irradiance
+/// is not separately tracked for the thermal model. In pvlib-python, an
+/// optional `effective_irradiance` parameter allows decoupling these; this
+/// implementation does not yet support that.
+///
 /// # Arguments
 /// * `poa_global` - Total incident irradiance [W/m^2].
 /// * `temp_air` - Ambient dry bulb temperature [C].

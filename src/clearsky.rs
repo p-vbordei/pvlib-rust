@@ -58,29 +58,33 @@ pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitu
     let tl = linke_turbidity;
     let h = altitude;
 
-    let f1 = (-(h / 8000.0)).exp();
-    let _f2 = (-(h / 1250.0)).exp();
-    let _cg1 = (5.043e-5 * h + 0.0505) * (0.0149 * tl - 0.113) + 0.117; // Simplification of solar altitude corrections
-    let _cg2 = (0.06 - 0.0108 * h / 1000.0) * tl + 0.54; // A simple empirical approx from Ineichen
+    let fh1 = (-h / 8000.0).exp();
+    let fh2 = (-h / 1250.0).exp();
 
-    // Solar altitude
     let cos_z = zenith.to_radians().cos().max(0.01);
 
-    // Direct
-    let i0 = 1361.0; // extraterrestrial baseline
-    let b = 0.664 + 0.163 / f1; // Parameter b from un-modified Ineichen
-    
-    // Very simplified DNI implementation of Ineichen for PvLib-Rust MVP
-    // Standard formulation: DNI = I0 * b * exp(-0.09 * am * (Tl - 1))
-    let dni = i0 * b * (-0.09 * am * (tl - 1.0)).exp() * cos_z;
+    let i0 = 1366.1; // extraterrestrial solar constant
 
-    // GHI = cg1 * I0 * cos(Z) * exp(-cg2 * am * (Tl - 1))
-    // using empirical fitting parameters
-    let ghi_cg1 = 5.09e-5 * h + 0.868;
-    let ghi_cg2 = 0.0387 * tl.ln() + 0.01 * (h / 1000.0);
-    let ghi = i0 * ghi_cg1 * cos_z * (-ghi_cg2 * am * (tl - 1.0)).exp();
+    let cg1 = 5.09e-05 * h + 0.868;
+    let cg2 = 3.92e-05 * h + 0.0387;
 
-    let dhi = if ghi > dni * cos_z { ghi - dni * cos_z } else { 0.0 };
+    // GHI
+    let ghi = cg1 * i0 * cos_z * (-cg2 * am * (fh1 + fh2 * (tl - 1.0))).exp().max(0.0);
+
+    // DNI
+    let b = 0.664 + 0.163 / fh1;
+    let bnci = i0 * (b * (-0.09 * am * (tl - 1.0)).exp()).max(0.0);
+    let denom = cos_z;
+    let ratio = if denom > 0.0 {
+        ((1.0 - (0.1 - 0.2 * (-tl).exp()) / (0.1 + 0.882 / fh1)) / denom).clamp(0.0, 1e20)
+    } else {
+        0.0
+    };
+    let bnci_2 = ghi * ratio;
+    let dni = bnci.min(bnci_2);
+
+    // DHI
+    let dhi = ghi - dni * cos_z;
 
     ClearSkyIrradiance { ghi: ghi.max(0.0), dni: dni.max(0.0), dhi: dhi.max(0.0) }
 }
@@ -94,19 +98,88 @@ pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitu
 /// 
 /// # Returns
 /// A `ClearSkyIrradiance` struct containing GHI, DNI, and DHI in W/m^2.
-pub fn simplified_solis(zenith: f64, aerosol_optical_depth: f64, _precipitable_water: f64, _pressure: f64) -> ClearSkyIrradiance {
-    if zenith >= 90.0 {
+/// Simplified Solis clear sky model.
+///
+/// Note: this function takes `apparent_elevation` (degrees above horizon),
+/// NOT zenith angle, matching the pvlib-python API.
+///
+/// # Arguments
+/// * `apparent_elevation` - Apparent solar elevation in degrees above the horizon.
+/// * `aod700` - Aerosol optical depth at 700 nm (default 0.1).
+/// * `precipitable_water` - Precipitable water in cm (default 1.0, minimum 0.2).
+/// * `pressure` - Atmospheric pressure in Pascals (default 101325).
+///
+/// # Returns
+/// A `ClearSkyIrradiance` struct containing GHI, DNI, and DHI in W/m^2.
+pub fn simplified_solis(apparent_elevation: f64, aod700: f64, precipitable_water: f64, pressure: f64) -> ClearSkyIrradiance {
+    if apparent_elevation <= 0.0 {
         return ClearSkyIrradiance { ghi: 0.0, dni: 0.0, dhi: 0.0 };
     }
-    
-    let cos_z = zenith.to_radians().cos().max(0.01);
-    let i0 = 1361.0;
-    
-    // Simplified empirical derivation of solis mapping
-    let ghi = i0 * cos_z * (-0.1 * aerosol_optical_depth / cos_z).exp();
-    let dni = ghi * 0.8;
-    let dhi = ghi - dni * cos_z;
-    
+
+    let dni_extra = 1364.0;
+    let p = pressure;
+    let p0 = 101325.0_f64;
+    let w = precipitable_water.max(0.2);
+    let aod = aod700;
+    let ln_w = w.ln();
+    let ln_p = (p / p0).ln();
+
+    // i0p: enhanced extraterrestrial irradiance
+    let io0 = 1.08 * w.powf(0.0051);
+    let i01 = 0.97 * w.powf(0.032);
+    let i02 = 0.12 * w.powf(0.56);
+    let i0p = dni_extra * (i02 * aod * aod + i01 * aod + io0 + 0.071 * ln_p);
+
+    // taub, b coefficients (DNI)
+    let tb1 = 1.82 + 0.056 * ln_w + 0.0071 * ln_w * ln_w;
+    let tb0 = 0.33 + 0.045 * ln_w + 0.0096 * ln_w * ln_w;
+    let tbp = 0.0089 * w + 0.13;
+    let taub = tb1 * aod + tb0 + tbp * ln_p;
+
+    let b1 = 0.00925 * aod * aod + 0.0148 * aod - 0.0172;
+    let b0 = -0.7565 * aod * aod + 0.5057 * aod + 0.4557;
+    let b = b1 * ln_w + b0;
+
+    // taug, g coefficients (GHI)
+    let tg1 = 1.24 + 0.047 * ln_w + 0.0061 * ln_w * ln_w;
+    let tg0 = 0.27 + 0.043 * ln_w + 0.0090 * ln_w * ln_w;
+    let tgp = 0.0079 * w + 0.1;
+    let taug = tg1 * aod + tg0 + tgp * ln_p;
+
+    let g = -0.0147 * ln_w - 0.3079 * aod * aod + 0.2846 * aod + 0.3798;
+
+    // taud, d coefficients (DHI)
+    let (td4, td3, td2, td1, td0, tdp) = if aod < 0.05 {
+        (
+            86.0 * w - 13800.0,
+            -3.11 * w + 79.4,
+            -0.23 * w + 74.8,
+            0.092 * w - 8.86,
+            0.0042 * w + 3.12,
+            -0.83 * (1.0 + aod).powf(-17.2),
+        )
+    } else {
+        (
+            -0.21 * w + 11.6,
+            0.27 * w - 20.7,
+            -0.134 * w + 15.5,
+            0.0554 * w - 5.71,
+            0.0057 * w + 2.94,
+            -0.71 * (1.0 + aod).powf(-15.0),
+        )
+    };
+    let taud = td4 * aod.powi(4) + td3 * aod.powi(3) + td2 * aod.powi(2) + td1 * aod + td0 + tdp * ln_p;
+
+    let dp = 1.0 / (18.0 + 152.0 * aod);
+    let d = -0.337 * aod * aod + 0.63 * aod + 0.116 + dp * ln_p;
+
+    // Compute irradiances
+    let sin_elev = apparent_elevation.to_radians().sin().max(1e-30);
+
+    let dni = i0p * (-taub / sin_elev.powf(b)).exp();
+    let ghi = i0p * (-taug / sin_elev.powf(g)).exp() * sin_elev;
+    let dhi = i0p * (-taud / sin_elev.powf(d)).exp();
+
     ClearSkyIrradiance {
         ghi: ghi.max(0.0),
         dni: dni.max(0.0),
