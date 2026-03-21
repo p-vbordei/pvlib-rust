@@ -193,10 +193,18 @@ fn bishop88_inner(
     let v_star = vd / p.n_ns_vth;
     let g_sh = 1.0 / p.resistance_shunt;
 
-    // breakdown term
-    let brk_term = 1.0 - vd / p.breakdown_voltage;
-    let brk_pwr = brk_term.powf(-p.breakdown_exp);
-    let i_breakdown = p.breakdown_factor * vd * g_sh * brk_pwr;
+    // breakdown term (only compute when breakdown_factor is nonzero)
+    let (brk_pwr, i_breakdown) = if p.breakdown_factor != 0.0 {
+        let brk_term = 1.0 - vd / p.breakdown_voltage;
+        if brk_term <= 0.0 {
+            (f64::INFINITY, f64::INFINITY)
+        } else {
+            let bp = brk_term.powf(-p.breakdown_exp);
+            (bp, p.breakdown_factor * vd * g_sh * bp)
+        }
+    } else {
+        (1.0, 0.0)
+    };
 
     let i = p.photocurrent - p.saturation_current * v_star.exp_m1() - vd * g_sh - i_recomb
         - i_breakdown;
@@ -224,15 +232,23 @@ fn bishop88_inner(
 
     let g_diode = p.saturation_current * v_star.exp() / p.n_ns_vth;
 
-    let brk_pwr_1 = brk_term.powf(-p.breakdown_exp - 1.0);
-    let brk_pwr_2 = brk_term.powf(-p.breakdown_exp - 2.0);
-    let brk_fctr = p.breakdown_factor * g_sh;
-    // Match Python: grad_i_brk = brk_fctr * (brk_pwr + vd * -m * brk_pwr_1)
-    let grad_i_brk = brk_fctr * (brk_pwr + vd * (-p.breakdown_exp) * brk_pwr_1);
-    // Match Python: grad2i_brk = brk_fctr * -m * (2*brk_pwr_1 + vd*(-m-1)*brk_pwr_2)
-    let grad2i_brk = brk_fctr
-        * (-p.breakdown_exp)
-        * (2.0 * brk_pwr_1 + vd * (-p.breakdown_exp - 1.0) * brk_pwr_2);
+    let (grad_i_brk, grad2i_brk) = if p.breakdown_factor != 0.0 {
+        let brk_term = 1.0 - vd / p.breakdown_voltage;
+        if brk_term <= 0.0 {
+            (f64::INFINITY, f64::INFINITY)
+        } else {
+            let brk_pwr_1 = brk_term.powf(-p.breakdown_exp - 1.0);
+            let brk_pwr_2 = brk_term.powf(-p.breakdown_exp - 2.0);
+            let brk_fctr = p.breakdown_factor * g_sh;
+            let gi = brk_fctr * (brk_pwr + vd * (-p.breakdown_exp) * brk_pwr_1);
+            let g2i = brk_fctr
+                * (-p.breakdown_exp)
+                * (2.0 * brk_pwr_1 + vd * (-p.breakdown_exp - 1.0) * brk_pwr_2);
+            (gi, g2i)
+        }
+    } else {
+        (0.0, 0.0)
+    };
 
     let di_dvd = -g_diode - g_sh - grad_i_recomb - grad_i_brk;
     let dv_dvd = 1.0 - di_dvd * p.resistance_series;
@@ -260,10 +276,10 @@ fn bishop88_inner(
 /// Searches for the diode voltage `vd` such that `bishop88(vd).voltage == voltage`.
 pub fn bishop88_i_from_v(voltage: f64, p: &Bishop88Params) -> f64 {
     let voc_est = estimate_voc(p.photocurrent, p.saturation_current, p.n_ns_vth);
-    let mut vd = if voc_est < p.ns_vbi {
-        voc_est
-    } else {
+    let mut vd = if p.ns_vbi > 0.0 && voc_est >= p.ns_vbi {
         0.9999 * p.ns_vbi
+    } else {
+        voc_est
     };
     // initial guess: diode_voltage ~ voltage (assuming small I*Rs)
     if voltage < vd {
@@ -289,10 +305,10 @@ pub fn bishop88_i_from_v(voltage: f64, p: &Bishop88Params) -> f64 {
 /// Searches for the diode voltage `vd` such that `bishop88(vd).current == current`.
 pub fn bishop88_v_from_i(current: f64, p: &Bishop88Params) -> f64 {
     let voc_est = estimate_voc(p.photocurrent, p.saturation_current, p.n_ns_vth);
-    let mut vd = if voc_est < p.ns_vbi {
-        voc_est
-    } else {
+    let mut vd = if p.ns_vbi > 0.0 && voc_est >= p.ns_vbi {
         0.9999 * p.ns_vbi
+    } else {
+        voc_est
     };
 
     for _ in 0..NEWTON_MAXITER {

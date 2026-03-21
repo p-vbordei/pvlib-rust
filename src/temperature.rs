@@ -39,7 +39,8 @@ pub fn pvsyst_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, 
     if poa_global <= 0.0 {
         return temp_air;
     }
-    temp_air + (alpha_absorption * poa_global * (1.0 - module_efficiency)) / (u_c + u_v * wind_speed)
+    let h_total = (u_c + u_v * wind_speed).max(0.01);
+    temp_air + (alpha_absorption * poa_global * (1.0 - module_efficiency)) / h_total
 }
 
 /// Faiman (2008) cell temperature model.
@@ -59,7 +60,8 @@ pub fn faiman(poa_global: f64, temp_air: f64, wind_speed: f64, u0: f64, u1: f64)
     if poa_global <= 0.0 {
         return temp_air;
     }
-    temp_air + poa_global / (u0 + u1 * wind_speed)
+    let h_total = (u0 + u1 * wind_speed).max(0.01);
+    temp_air + poa_global / h_total
 }
 
 /// Fuentes (1987) module temperature model.

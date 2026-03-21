@@ -21,7 +21,7 @@ pub fn accumulation_model(rainfall: f64, cleaning_threshold: f64, tilt: f64, pm2
     let accumulation_rate = (0.001 * pm2_5 + 0.002 * pm10) / 100.0;
 
     // Closer to horizontal accumulates more
-    let tilt_factor = (90.0 - tilt.clamp(0.0, 90.0)).to_radians().cos();
+    let tilt_factor = tilt.clamp(0.0, 90.0).to_radians().cos();
 
     accumulation_rate * tilt_factor
 }

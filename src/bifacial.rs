@@ -32,9 +32,12 @@ pub fn get_irradiance_infinite_sheds(
     let tilt_rad = surface_tilt.to_radians();
     
     // 2D View Factor math (Marion 2017)
-    // Very generalized approximation for back surface ground reflection:
     // View factor to the ground from the rear side:
     // VF_rear_ground = 0.5 * (1 - cos(180 - tilt)) * (1 - shaded_ground_fraction)
+    
+    if pitch <= 0.0 {
+        return 0.0; // Prevent divide by zero if pitch is improperly configured
+    }
     
     let module_width = pitch * gcr;
     // Approximating the unshaded ground fraction

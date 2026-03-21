@@ -168,8 +168,11 @@ pub fn boland(ghi: f64, zenith: f64, dni_extra: f64) -> (f64, f64) {
     
     let kt = ghi / (dni_extra * cos_z);
     
-    // Boland logistic equation
-    let kd = 1.0 / (1.0 + (-5.0033 + 8.6025 * kt).exp());
+    // Boland logistic equation: DF = 1 / (1 + exp(a*(kt - b)))
+    // Default coefficients: a=8.645, b=0.613 (15-minute data, Boland et al.)
+    let a_coeff = 8.645;
+    let b_coeff = 0.613;
+    let kd = 1.0 / (1.0 + (a_coeff * (kt - b_coeff)).exp());
     let dhi = ghi * kd.clamp(0.0, 1.0);
     let dni = ((ghi - dhi) / cos_z).max(0.0);
     
@@ -209,10 +212,10 @@ pub fn dirint(ghi: f64, zenith: f64, _dew_point: f64, _pressure: f64, dni_extra:
 /// POA direct beam.
 pub fn poa_direct(aoi_in: f64, dni: f64) -> f64 {
     let aoi_rad = aoi_in.to_radians();
-    if aoi_rad > std::f64::consts::PI / 2.0 {
+    if aoi_rad.abs() > std::f64::consts::PI / 2.0 {
         0.0
     } else {
-        dni * aoi_rad.cos()
+        (dni * aoi_rad.cos()).max(0.0)
     }
 }
 
@@ -513,9 +516,11 @@ pub fn disc(ghi: f64, solar_zenith: f64, day_of_year: i32, pressure: Option<f64>
     let max_zenith = 87.0;
     let min_cos_zenith = 0.065;
 
-    // DISC uses solar constant = 1370 with Spencer method
-    let b = 2.0 * PI * ((day_of_year - 3) as f64) / 365.0;
-    let i0 = 1370.0 * (1.0 + 0.033412 * b.cos());
+    // DISC uses solar constant = 1370 with Spencer 1971 full Fourier series
+    let b = 2.0 * PI * ((day_of_year - 1) as f64) / 365.0;
+    let rover = 1.00011 + 0.034221 * b.cos() + 0.00128 * b.sin()
+        + 0.000719 * (2.0 * b).cos() + 0.000077 * (2.0 * b).sin();
+    let i0 = 1370.0 * rover;
 
     // Clearness index
     let cos_z = solar_zenith.to_radians().cos().max(min_cos_zenith);

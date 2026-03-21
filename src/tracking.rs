@@ -1,5 +1,9 @@
 /// Calculate single-axis tracker positions with backtracking support.
-/// 
+///
+/// Determines the rotation angle of a single-axis tracker using the
+/// projected solar zenith angle approach from Anderson & Mikofski (2020).
+/// Backtracking uses the slope-aware method (Eq. 14 from the same reference).
+///
 /// # Arguments
 /// * `solar_zenith` - Apparent solar zenith angle in degrees.
 /// * `solar_azimuth` - Apparent solar azimuth angle in degrees.
@@ -8,9 +12,13 @@
 /// * `max_angle` - Maximum rotation angle of the tracker from horizontal (e.g. 45.0 or 60.0 degrees).
 /// * `backtrack` - Enable backtracking (True).
 /// * `gcr` - Ground Coverage Ratio (module width / row pitch).
-/// 
+///
 /// # Returns
 /// A tuple containing `(surface_tilt, surface_azimuth, aoi)`. All in degrees.
+///
+/// # References
+/// Anderson, K., and Mikofski, M., 2020, "Slope-Aware Backtracking for
+/// Single-Axis Trackers", Technical Report NREL/TP-5K00-76626.
 pub fn singleaxis(
     solar_zenith: f64,
     solar_azimuth: f64,
@@ -20,42 +28,54 @@ pub fn singleaxis(
     backtrack: bool,
     gcr: f64,
 ) -> (f64, f64, f64) {
-    if solar_zenith >= 90.0 { return (0.0, axis_azimuth, 90.0); }
+    use crate::shading::projected_solar_zenith_angle;
+    use crate::irradiance::aoi as irr_aoi;
 
-    let sz_rad = solar_zenith.to_radians();
-    let sa_rad = solar_azimuth.to_radians();
-    let aa_rad = axis_azimuth.to_radians();
-    let _at_rad = axis_tilt.to_radians(); // Assuming HSAT for MVP
+    // Sun below horizon — return stow position
+    if solar_zenith >= 90.0 {
+        let (st, sa) = calc_surface_orientation(0.0, axis_tilt, axis_azimuth);
+        let a = irr_aoi(st, sa, solar_zenith, solar_azimuth);
+        return (st, sa, a);
+    }
 
-    // Ideal Rotational angle (un-limited)
-    let rot_angle_rad = (sz_rad.tan() * (sa_rad - aa_rad).sin()).atan();
-    let mut rot_deg = rot_angle_rad.to_degrees();
+    // Calculate cross-axis tilt from the axis geometry.
+    // For a flat site (slope_tilt=0) cross_axis_tilt is 0.
+    // Users with sloped terrain should use calc_cross_axis_tilt externally.
+    let cross_axis_tilt: f64 = 0.0;
 
-    // Backtracking logic (standard simplified geometric implementation)
+    // Ideal rotation angle via projected solar zenith angle
+    // (Anderson & Mikofski 2020, handles arbitrary axis_tilt)
+    let mut tracker_theta = projected_solar_zenith_angle(
+        solar_zenith,
+        solar_azimuth,
+        axis_tilt,
+        axis_azimuth,
+    );
+
+    // Backtracking — slope-aware method (Anderson & Mikofski 2020, Eq. 14)
     if backtrack && gcr > 0.0 {
-        let temp = (rot_angle_rad.cos() * gcr).clamp(-1.0, 1.0);
-        let shade_angle = temp.acos();
-        
-        if rot_angle_rad.abs() > shade_angle {
-            let bt_angle_rad = rot_angle_rad.signum() * (rot_angle_rad.abs() - shade_angle);
-            rot_deg -= bt_angle_rad.to_degrees();
+        let axes_distance = 1.0 / (gcr * cross_axis_tilt.to_radians().cos());
+
+        // temp = |axes_distance * cos(tracker_theta - cross_axis_tilt)|
+        let temp = (axes_distance * (tracker_theta - cross_axis_tilt).to_radians().cos()).abs();
+
+        if temp < 1.0 {
+            // Backtracking correction needed
+            let omega_correction = -tracker_theta.signum() * temp.acos().to_degrees();
+            tracker_theta += omega_correction;
         }
+        // else: no row-to-row shade, no correction needed (Eqs. 15-16)
     }
 
     // Apply hardware limits
-    rot_deg = rot_deg.clamp(-max_angle, max_angle);
+    tracker_theta = tracker_theta.clamp(-max_angle, max_angle);
 
-    let surface_tilt = rot_deg.abs();
-    let surface_azimuth = if rot_deg >= 0.0 {
-        (axis_azimuth - 90.0).rem_euclid(360.0)
-    } else {
-        (axis_azimuth + 90.0).rem_euclid(360.0)
-    };
+    // Calculate surface tilt & azimuth using full orientation model
+    let (surface_tilt, surface_azimuth) =
+        calc_surface_orientation(tracker_theta, axis_tilt, axis_azimuth);
 
-    let cos_aoi = sz_rad.cos() * surface_tilt.to_radians().cos()
-        + sz_rad.sin() * surface_tilt.to_radians().sin() * (sa_rad - surface_azimuth.to_radians()).cos();
-    
-    let aoi = cos_aoi.clamp(-1.0, 1.0).acos().to_degrees();
+    // Angle of incidence
+    let aoi = irr_aoi(surface_tilt, surface_azimuth, solar_zenith, solar_azimuth);
 
     (surface_tilt, surface_azimuth, aoi)
 }

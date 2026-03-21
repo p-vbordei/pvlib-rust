@@ -12,7 +12,7 @@
 /// # Returns
 /// AC power output (W).
 pub fn pvwatts_ac(pdc: f64, pdc0: f64, eta_inv_nom: f64, eta_inv_ref: f64) -> f64 {
-    if pdc <= 0.0 {
+    if pdc <= 0.0 || pdc0 <= 0.0 {
         return 0.0;
     }
 
@@ -53,7 +53,12 @@ fn sandia_eff(
     let b = p_so * (1.0 + c2 * (v_dc - v_dco));
     let c = c0 * (1.0 + c3 * (v_dc - v_dco));
 
-    (p_aco / (a - b) - c * (a - b)) * (p_dc - b) + c * (p_dc - b).powi(2)
+    let mut denom = a - b;
+    if denom.abs() < 1e-6 {
+        denom = 1e-6; // prevent division by zero in pathological coefficient matrices
+    }
+
+    (p_aco / denom - c * denom) * (p_dc - b) + c * (p_dc - b).powi(2)
 }
 
 /// Sandia National Laboratories Grid-Connected Inverter Model.

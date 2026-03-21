@@ -536,12 +536,16 @@ pub fn read_epw(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
             continue;
         }
         let fields: Vec<&str> = line.split(',').collect();
-        if fields.len() < 33 {
+        if fields.len() < 29 {
             continue;
         }
 
         let parse_f64 = |i: usize| -> Result<f64, Box<dyn Error>> {
             fields[i].trim().parse::<f64>().map_err(|e| e.into())
+        };
+
+        let try_parse_f64 = |i: usize| -> Option<f64> {
+            fields.get(i).and_then(|s| s.trim().parse::<f64>().ok())
         };
 
         // EPW hour is 1-24; convert to 0-23
@@ -554,6 +558,14 @@ pub fn read_epw(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
         let time_str = format!("{:04}{:02}{:02}:{:02}{:02}",
             year, month, day, hour, 0);
 
+        // EPW standard columns (0-indexed):
+        //  0-5: year, month, day, hour, minute, data_source
+        //  6: temp_air, 7: temp_dew, 8: rh, 9: pressure
+        //  10: etr, 11: etrn, 12: ghi_infrared, 13: ghi, 14: dni, 15: dhi
+        //  16-19: illuminance fields, 20: wind_dir, 21: wind_speed
+        //  22-27: sky cover, visibility, ceiling, weather obs/codes
+        //  28: precipitable_water, 29: aod, 30: snow_depth, 31: days_since_snow
+        //  32: albedo, 33: liquid_precip_depth, 34: liquid_precip_qty
         records.push(WeatherRecord {
             time: time_str,
             temp_air: parse_f64(6)?,
@@ -566,8 +578,8 @@ pub fn read_epw(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
             infrared: Some(parse_f64(12)?),
             wind_direction: Some(parse_f64(20)?),
             temp_dew: Some(parse_f64(7)?),
-            precipitable_water: Some(parse_f64(28)?),
-            albedo: Some(parse_f64(32)?),
+            precipitable_water: try_parse_f64(28),
+            albedo: try_parse_f64(32),
             year: Some(year),
             month: Some(month),
             day: Some(day),
