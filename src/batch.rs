@@ -323,6 +323,40 @@ pub struct WeatherSeries {
     pub albedo: Option<Vec<f64>>,
 }
 
+impl WeatherSeries {
+    /// Construct a `WeatherSeries` from UTC `NaiveDateTime` timestamps and a
+    /// timezone name (e.g. `"US/Eastern"`, `"UTC"`, `"Europe/Berlin"`).
+    ///
+    /// Each `NaiveDateTime` is interpreted as UTC and converted to the target
+    /// timezone.  Returns `Err` if `tz_name` cannot be parsed.
+    pub fn from_utc(
+        timestamps: &[chrono::NaiveDateTime],
+        tz_name: &str,
+        ghi: Vec<f64>,
+        dni: Vec<f64>,
+        dhi: Vec<f64>,
+        temp_air: Vec<f64>,
+        wind_speed: Vec<f64>,
+    ) -> Result<Self, String> {
+        let tz: chrono_tz::Tz = tz_name
+            .parse()
+            .map_err(|_| format!("Unknown timezone: {}", tz_name))?;
+        let times: Vec<chrono::DateTime<chrono_tz::Tz>> = timestamps
+            .iter()
+            .map(|ndt| chrono::Utc.from_utc_datetime(ndt).with_timezone(&tz))
+            .collect();
+        Ok(Self {
+            times,
+            ghi,
+            dni,
+            dhi,
+            temp_air,
+            wind_speed,
+            albedo: None,
+        })
+    }
+}
+
 /// Output from batch simulation -- one value per timestep.
 #[derive(Debug, Clone)]
 pub struct SimulationSeries {

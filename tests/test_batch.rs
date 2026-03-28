@@ -600,6 +600,51 @@ fn test_solar_position_batch_utc_matches_tz_version() {
 }
 
 // ---------------------------------------------------------------------------
+// WeatherSeries::from_utc
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_weather_series_from_utc() {
+    let timestamps = vec![
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(18, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(19, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(20, 0, 0).unwrap(),
+    ];
+    let ghi = vec![600.0, 900.0, 700.0];
+    let dni = vec![500.0, 800.0, 600.0];
+    let dhi = vec![100.0, 100.0, 100.0];
+    let temp_air = vec![28.0, 32.0, 30.0];
+    let wind_speed = vec![2.0, 1.5, 2.5];
+
+    let ws = batch::WeatherSeries::from_utc(
+        &timestamps, "US/Eastern",
+        ghi.clone(), dni.clone(), dhi.clone(),
+        temp_air.clone(), wind_speed.clone(),
+    ).unwrap();
+
+    assert_eq!(ws.times.len(), 3);
+    assert_eq!(ws.ghi.len(), 3);
+    assert_eq!(ws.dni.len(), 3);
+    assert_eq!(ws.dhi.len(), 3);
+    assert_eq!(ws.temp_air.len(), 3);
+    assert_eq!(ws.wind_speed.len(), 3);
+    assert!(ws.albedo.is_none());
+}
+
+#[test]
+fn test_weather_series_from_utc_invalid_tz() {
+    let timestamps = vec![
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(18, 0, 0).unwrap(),
+    ];
+    let result = batch::WeatherSeries::from_utc(
+        &timestamps, "Invalid/Timezone",
+        vec![600.0], vec![500.0], vec![100.0],
+        vec![28.0], vec![2.0],
+    );
+    assert!(result.is_err());
+}
+
+// ---------------------------------------------------------------------------
 // Solar Elevation
 // ---------------------------------------------------------------------------
 
