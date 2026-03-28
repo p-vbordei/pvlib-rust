@@ -412,6 +412,8 @@ pub struct BatchModelChain {
     /// When true, automatically decompose GHI into DNI/DHI using the Erbs model
     /// if DNI and DHI are both near zero but GHI is positive.
     pub auto_decomposition: bool,
+    /// System losses (wiring, connections, mismatch, soiling): 0.0 = no losses, 0.14 = 14% losses.
+    pub system_losses: f64,
     /// Bifaciality factor: 0.0 = monofacial, 0.65-0.85 typical for bifacial modules.
     pub bifaciality_factor: f64,
     /// Ground albedo used for rear-side irradiance calculation.
@@ -437,6 +439,7 @@ impl BatchModelChain {
             albedo: 0.2,
             transposition_model: irradiance::DiffuseModel::Perez,
             auto_decomposition: false,
+            system_losses: 0.0,
             bifaciality_factor: 0.0,
             bifacial_ground_albedo: 0.2,
         }
@@ -470,6 +473,12 @@ impl BatchModelChain {
     /// Builder: enable/disable automatic GHI to DNI/DHI decomposition via Erbs model.
     pub fn with_auto_decomposition(mut self, enabled: bool) -> Self {
         self.auto_decomposition = enabled;
+        self
+    }
+
+    /// Builder: set system losses (0.0 = no losses, 0.14 = 14% losses).
+    pub fn with_system_losses(mut self, losses: f64) -> Self {
+        self.system_losses = losses;
         self
     }
 
@@ -562,6 +571,9 @@ impl BatchModelChain {
             let pdc = self.system_capacity_dc * (eff_irrad / 1000.0)
                 * (1.0 + self.gamma_pdc * (t_cell - 25.0));
             let pdc = pdc.max(0.0);
+
+            // 9b. System losses
+            let pdc = pdc * (1.0 - self.system_losses);
 
             // 10. AC power
             let pac = inverter::pvwatts_ac(

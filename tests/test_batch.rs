@@ -810,6 +810,97 @@ fn test_auto_decomposition_matches_manual_erbs() {
 }
 
 // ---------------------------------------------------------------------------
+// System Losses
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_batch_modelchain_system_losses() {
+    let loc = tucson();
+    let weather = batch::WeatherSeries {
+        times: vec![
+            Eastern.with_ymd_and_hms(2020, 6, 15, 10, 0, 0).unwrap(),
+            summer_noon(),
+            Eastern.with_ymd_and_hms(2020, 6, 15, 14, 0, 0).unwrap(),
+        ],
+        ghi: vec![600.0, 900.0, 700.0],
+        dni: vec![500.0, 800.0, 600.0],
+        dhi: vec![100.0, 100.0, 100.0],
+        temp_air: vec![28.0, 32.0, 30.0],
+        wind_speed: vec![2.0, 1.5, 2.5],
+        albedo: None,
+    };
+
+    // No losses baseline
+    let chain_no_loss = batch::BatchModelChain::pvwatts(loc.clone(), 30.0, 180.0, 5000.0);
+    let result_no_loss = chain_no_loss.run(&weather).unwrap();
+
+    // 14% losses
+    let chain_14 = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_system_losses(0.14);
+    let result_14 = chain_14.run(&weather).unwrap();
+
+    // DC power with 14% losses should be ~86% of no-loss DC power
+    for i in 0..3 {
+        let ratio = result_14.dc_power[i] / result_no_loss.dc_power[i];
+        assert!(
+            (ratio - 0.86).abs() < 0.001,
+            "dc_power ratio at [{}] is {}, expected ~0.86",
+            i, ratio
+        );
+    }
+
+    // AC power with losses should be less than without
+    for i in 0..3 {
+        assert!(
+            result_14.ac_power[i] < result_no_loss.ac_power[i],
+            "ac_power[{}] with losses ({}) should be less than without ({})",
+            i, result_14.ac_power[i], result_no_loss.ac_power[i]
+        );
+    }
+}
+
+#[test]
+fn test_batch_modelchain_zero_losses() {
+    let loc = tucson();
+    let weather = batch::WeatherSeries {
+        times: vec![
+            Eastern.with_ymd_and_hms(2020, 6, 15, 10, 0, 0).unwrap(),
+            summer_noon(),
+            Eastern.with_ymd_and_hms(2020, 6, 15, 14, 0, 0).unwrap(),
+        ],
+        ghi: vec![600.0, 900.0, 700.0],
+        dni: vec![500.0, 800.0, 600.0],
+        dhi: vec![100.0, 100.0, 100.0],
+        temp_air: vec![28.0, 32.0, 30.0],
+        wind_speed: vec![2.0, 1.5, 2.5],
+        albedo: None,
+    };
+
+    // Default (system_losses = 0.0)
+    let chain_default = batch::BatchModelChain::pvwatts(loc.clone(), 30.0, 180.0, 5000.0);
+    let result_default = chain_default.run(&weather).unwrap();
+
+    // Explicitly set losses to 0.0
+    let chain_zero = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_system_losses(0.0);
+    let result_zero = chain_zero.run(&weather).unwrap();
+
+    // Should be exactly identical
+    for i in 0..3 {
+        assert_eq!(
+            result_default.ac_power[i], result_zero.ac_power[i],
+            "ac_power[{}] mismatch: default={} zero_losses={}",
+            i, result_default.ac_power[i], result_zero.ac_power[i]
+        );
+        assert_eq!(
+            result_default.dc_power[i], result_zero.dc_power[i],
+            "dc_power[{}] mismatch: default={} zero_losses={}",
+            i, result_default.dc_power[i], result_zero.dc_power[i]
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Bifacial Rear-Side Gain
 // ---------------------------------------------------------------------------
 
