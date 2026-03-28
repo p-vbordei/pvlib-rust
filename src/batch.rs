@@ -1,4 +1,5 @@
 use rayon::prelude::*;
+use chrono::TimeZone;
 use crate::{solarposition, atmosphere, clearsky, irradiance, temperature, iam, inverter};
 
 // ---------------------------------------------------------------------------
@@ -19,6 +20,24 @@ pub fn solar_position_batch(
     let azimuth = results.iter().map(|r| r.azimuth).collect();
     let elevation = results.iter().map(|r| r.elevation).collect();
     Ok((zenith, azimuth, elevation))
+}
+
+/// Convenience batch solar position for UTC `NaiveDateTime` timestamps.
+///
+/// Internally creates a `Location` with the UTC timezone, converts each
+/// `NaiveDateTime` to `DateTime<Tz>`, and delegates to [`solar_position_batch`].
+pub fn solar_position_batch_utc(
+    latitude: f64,
+    longitude: f64,
+    altitude: f64,
+    times: &[chrono::NaiveDateTime],
+) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>), spa::SpaError> {
+    let location = crate::location::Location::new(latitude, longitude, chrono_tz::UTC, altitude, "UTC");
+    let datetimes: Vec<chrono::DateTime<chrono_tz::Tz>> = times
+        .iter()
+        .map(|ndt| chrono::Utc.from_utc_datetime(ndt).with_timezone(&chrono_tz::UTC))
+        .collect();
+    solar_position_batch(&location, &datetimes)
 }
 
 // ---------------------------------------------------------------------------

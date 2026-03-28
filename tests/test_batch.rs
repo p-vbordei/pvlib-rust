@@ -1,4 +1,4 @@
-use chrono::TimeZone;
+use chrono::{NaiveDate, TimeZone};
 use chrono_tz::US::Eastern;
 use pvlib::location::Location;
 use pvlib::batch;
@@ -549,6 +549,54 @@ fn test_batch_modelchain_tmy_year_performance() {
     // but should be in a reasonable range
     assert!(cf > 0.01, "Capacity factor too low: {}", cf);
     assert!(cf < 0.5, "Capacity factor too high: {}", cf);
+}
+
+// ---------------------------------------------------------------------------
+// Solar Position Batch UTC
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_solar_position_batch_utc() {
+    // Summer daytime timestamps in UTC for Tucson (lat 32.2, lon -110.9)
+    let times = vec![
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(18, 0, 0).unwrap(), // ~11 AM local
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(19, 0, 0).unwrap(), // ~noon local
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(20, 0, 0).unwrap(), // ~1 PM local
+    ];
+
+    let (zenith, azimuth, elevation) = batch::solar_position_batch_utc(32.2, -110.9, 700.0, &times).unwrap();
+
+    assert_eq!(zenith.len(), 3);
+    assert_eq!(azimuth.len(), 3);
+    assert_eq!(elevation.len(), 3);
+
+    // Daytime: zenith should be < 90
+    for z in &zenith {
+        assert!(*z > 0.0 && *z < 90.0, "zenith {} out of daytime range", z);
+    }
+
+    // Elevation + zenith = 90
+    for (z, e) in zenith.iter().zip(elevation.iter()) {
+        assert!((z + e - 90.0).abs() < 1e-10, "zenith {} + elevation {} != 90", z, e);
+    }
+}
+
+#[test]
+fn test_solar_position_batch_utc_matches_tz_version() {
+    // Create the same moment in time via both paths and verify identical results.
+    let ndt = NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(19, 0, 0).unwrap();
+
+    // UTC convenience function
+    let (zen_utc, az_utc, el_utc) = batch::solar_position_batch_utc(32.2, -110.9, 700.0, &[ndt]).unwrap();
+
+    // Existing tz-aware path: construct the same instant manually
+    let loc = Location::new(32.2, -110.9, chrono_tz::UTC, 700.0, "test");
+    let dt = chrono::Utc.from_utc_datetime(&ndt).with_timezone(&chrono_tz::UTC);
+    let (zen_tz, az_tz, el_tz) = batch::solar_position_batch(&loc, &[dt]).unwrap();
+
+    assert!((zen_utc[0] - zen_tz[0]).abs() < 1e-10, "zenith mismatch: {} vs {}", zen_utc[0], zen_tz[0]);
+    assert!((az_utc[0] - az_tz[0]).abs() < 1e-10, "azimuth mismatch: {} vs {}", az_utc[0], az_tz[0]);
+    assert!((el_utc[0] - el_tz[0]).abs() < 1e-10, "elevation mismatch: {} vs {}", el_utc[0], el_tz[0]);
 }
 
 // ---------------------------------------------------------------------------
