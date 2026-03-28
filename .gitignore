@@ -1,3 +1,5 @@
 /target
 pvlib-python-ref/
 firebase-debug.log
+.DS_Store
+clippy_output.txt
