@@ -985,3 +985,68 @@ fn test_batch_modelchain_bifacial_zero_means_no_gain() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Integration: All New Features Combined
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_all_new_features_combined() {
+    use chrono::NaiveDate;
+
+    let loc = tucson();
+
+    // Use all new builder options together
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_gamma_pdc(-0.004)
+        .with_inverter(5000.0, 0.96)
+        .with_albedo(0.2)
+        .with_auto_decomposition(true)
+        .with_bifacial(0.7, 0.25)
+        .with_system_losses(0.14);
+
+    // Use from_utc constructor (GHI-only, DNI/DHI zero to trigger auto-decomposition)
+    let timestamps = vec![
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(14, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(16, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(18, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(20, 0, 0).unwrap(),
+    ];
+
+    let weather = batch::WeatherSeries::from_utc(
+        &timestamps,
+        "US/Eastern",
+        vec![800.0, 600.0, 200.0, 0.0],   // GHI
+        vec![0.0, 0.0, 0.0, 0.0],         // DNI (zeros — auto-decompose)
+        vec![0.0, 0.0, 0.0, 0.0],         // DHI (zeros — auto-decompose)
+        vec![32.0, 30.0, 26.0, 22.0],     // temp_air
+        vec![2.0, 2.5, 3.0, 2.0],         // wind_speed
+    ).unwrap();
+
+    let result = chain.run(&weather).unwrap();
+
+    // Check solar_elevation is populated
+    assert_eq!(result.solar_elevation.len(), 4);
+    for i in 0..4 {
+        assert!((result.solar_elevation[i] + result.solar_zenith[i] - 90.0).abs() < 1e-10);
+    }
+
+    // Daytime timesteps should produce positive power
+    assert!(result.ac_power[0] > 0.0, "midday should produce power");
+    assert!(result.ac_power[1] > 0.0, "afternoon should produce power");
+
+    // Night timestep should produce zero power
+    assert!(result.ac_power[3] < 1.0, "night should produce ~0 power");
+
+    // Power should be less than capacity (losses applied)
+    for p in &result.ac_power {
+        assert!(*p <= 5000.0 * 1.1, "power {} exceeds capacity", p);
+    }
+
+    // Verify solar_position_batch_utc works independently
+    let (zen, _az, elev) = batch::solar_position_batch_utc(
+        32.2, -110.9, 700.0, &timestamps,
+    ).unwrap();
+    assert_eq!(zen.len(), 4);
+    assert_eq!(elev.len(), 4);
+}
