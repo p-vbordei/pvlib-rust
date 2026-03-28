@@ -575,20 +575,20 @@ impl BatchModelChain {
             // 9b. System losses
             let pdc = pdc * (1.0 - self.system_losses);
 
+            // 9c. Bifacial rear-side gain (applied at DC level before inverter)
+            let pdc = if self.bifaciality_factor > 0.0 && poa.poa_global > 10.0 {
+                let rear_gain = (self.bifaciality_factor * self.bifacial_ground_albedo
+                    * weather.ghi[i] / poa.poa_global).min(0.25);
+                pdc * (1.0 + rear_gain)
+            } else {
+                pdc
+            };
+
             // 10. AC power
             let pac = inverter::pvwatts_ac(
                 pdc, self.system_capacity_dc,
                 self.inverter_efficiency, 0.9637,
             );
-
-            // 11. Bifacial rear-side gain
-            let pac = if self.bifaciality_factor > 0.0 && poa.poa_global > 10.0 {
-                let rear_gain = (self.bifaciality_factor * self.bifacial_ground_albedo
-                    * weather.ghi[i] / poa.poa_global).min(0.25);
-                pac * (1.0 + rear_gain)
-            } else {
-                pac
-            };
 
             Ok((solpos.zenith, solpos.azimuth, am_abs, aoi_val,
                 poa.poa_global, poa.poa_direct, poa.poa_diffuse,
