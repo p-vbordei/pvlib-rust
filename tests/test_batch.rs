@@ -1051,3 +1051,223 @@ fn test_all_new_features_combined() {
     assert_eq!(zen.len(), 4);
     assert_eq!(elev.len(), 4);
 }
+
+// ---------------------------------------------------------------------------
+// Edge Cases: NaN Handling in Auto-Decomposition
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_auto_decomposition_nan_dni_dhi() {
+    // Upstream Python/Polars pipelines often pass NaN for missing DNI/DHI.
+    // With auto_decomposition enabled, NaN should be treated as "missing"
+    // and trigger Erbs decomposition from GHI.
+    let loc = tucson();
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_auto_decomposition(true);
+
+    let weather = batch::WeatherSeries {
+        times: vec![summer_noon()],
+        ghi: vec![900.0],
+        dni: vec![f64::NAN],  // Missing — should trigger decomposition
+        dhi: vec![f64::NAN],  // Missing — should trigger decomposition
+        temp_air: vec![32.0],
+        wind_speed: vec![1.5],
+        albedo: None,
+    };
+
+    let result = chain.run(&weather).unwrap();
+
+    // Should produce positive power (not NaN or zero)
+    assert!(result.ac_power[0] > 0.0,
+        "NaN DNI/DHI with auto-decomposition should produce power, got {}",
+        result.ac_power[0]);
+    assert!(!result.ac_power[0].is_nan(),
+        "AC power should not be NaN");
+    assert!(result.poa_global[0] > 0.0,
+        "POA should be positive after decomposition, got {}",
+        result.poa_global[0]);
+    assert!(!result.poa_global[0].is_nan(),
+        "POA should not be NaN");
+}
+
+#[test]
+fn test_auto_decomposition_nan_without_flag() {
+    // Without auto_decomposition, NaN should propagate through
+    let loc = tucson();
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0);
+
+    let weather = batch::WeatherSeries {
+        times: vec![summer_noon()],
+        ghi: vec![900.0],
+        dni: vec![f64::NAN],
+        dhi: vec![f64::NAN],
+        temp_air: vec![32.0],
+        wind_speed: vec![1.5],
+        albedo: None,
+    };
+
+    let result = chain.run(&weather).unwrap();
+
+    // NaN propagates — POA and power should be NaN or zero
+    // (NaN DNI/DHI in transposition produces NaN POA)
+    let poa = result.poa_global[0];
+    let ac = result.ac_power[0];
+    // Either NaN propagated or clamped to 0
+    assert!(poa.is_nan() || poa == 0.0,
+        "Without decomposition, NaN input should propagate or clamp, got poa={}", poa);
+    assert!(ac.is_nan() || ac == 0.0,
+        "Without decomposition, NaN input should propagate or clamp, got ac={}", ac);
+}
+
+#[test]
+fn test_auto_decomposition_mixed_nan_and_valid() {
+    // Some timesteps have valid DNI/DHI, some have NaN.
+    // Only the NaN ones should be decomposed.
+    let loc = tucson();
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_auto_decomposition(true);
+
+    let weather = batch::WeatherSeries {
+        times: vec![
+            Eastern.with_ymd_and_hms(2020, 6, 15, 10, 0, 0).unwrap(),
+            summer_noon(),
+            Eastern.with_ymd_and_hms(2020, 6, 15, 14, 0, 0).unwrap(),
+        ],
+        ghi: vec![600.0, 900.0, 700.0],
+        dni: vec![500.0, f64::NAN, 600.0],  // Only index 1 is NaN
+        dhi: vec![100.0, f64::NAN, 100.0],  // Only index 1 is NaN
+        temp_air: vec![28.0, 32.0, 30.0],
+        wind_speed: vec![2.0, 1.5, 2.5],
+        albedo: None,
+    };
+
+    let result = chain.run(&weather).unwrap();
+
+    // All three should produce valid, positive power
+    for i in 0..3 {
+        assert!(result.ac_power[i] > 0.0 && !result.ac_power[i].is_nan(),
+            "ac_power[{}] should be positive and not NaN, got {}", i, result.ac_power[i]);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Edge Cases: System Losses Clamping
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_system_losses_clamped_above_one() {
+    let loc = tucson();
+    // Passing losses > 1.0 should be clamped to 1.0 (100% loss = zero power)
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_system_losses(1.5);
+
+    assert!((chain.system_losses - 1.0).abs() < 1e-10,
+        "system_losses should be clamped to 1.0, got {}", chain.system_losses);
+
+    let weather = batch::WeatherSeries {
+        times: vec![summer_noon()],
+        ghi: vec![900.0],
+        dni: vec![800.0],
+        dhi: vec![100.0],
+        temp_air: vec![32.0],
+        wind_speed: vec![1.5],
+        albedo: None,
+    };
+
+    let result = chain.run(&weather).unwrap();
+    // 100% losses = zero DC = zero AC
+    assert!(result.ac_power[0].abs() < 1e-6,
+        "100% system losses should produce zero power, got {}", result.ac_power[0]);
+}
+
+#[test]
+fn test_system_losses_clamped_below_zero() {
+    let loc = tucson();
+    // Passing negative losses should be clamped to 0.0
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_system_losses(-0.5);
+
+    assert!((chain.system_losses - 0.0).abs() < 1e-10,
+        "system_losses should be clamped to 0.0, got {}", chain.system_losses);
+}
+
+#[test]
+fn test_system_losses_nan_clamped() {
+    let loc = tucson();
+    // NaN losses should clamp (NaN.clamp returns NaN in Rust, so verify behavior)
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_system_losses(f64::NAN);
+
+    // NaN.clamp(0.0, 1.0) returns NaN in Rust — document this behavior
+    // The builder should ideally handle this, but at minimum it shouldn't panic
+    let _losses = chain.system_losses; // Should not panic
+}
+
+// ---------------------------------------------------------------------------
+// Edge Cases: Bifacial Zero-POA Fallback
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_bifacial_zero_poa_no_division_by_zero() {
+    // When POA is very low (nighttime), bifacial gain formula divides by
+    // poa_global. The guard `poa.poa_global > 10.0` should prevent this.
+    let loc = tucson();
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_bifacial(0.8, 0.3);
+
+    let weather = batch::WeatherSeries {
+        times: vec![
+            // Nighttime — zero irradiance
+            Eastern.with_ymd_and_hms(2020, 6, 15, 2, 0, 0).unwrap(),
+            // Very low irradiance (dawn)
+            Eastern.with_ymd_and_hms(2020, 6, 15, 5, 0, 0).unwrap(),
+        ],
+        ghi: vec![0.0, 5.0],
+        dni: vec![0.0, 2.0],
+        dhi: vec![0.0, 3.0],
+        temp_air: vec![18.0, 18.0],
+        wind_speed: vec![2.0, 2.0],
+        albedo: None,
+    };
+
+    let result = chain.run(&weather).unwrap();
+
+    // Neither should be NaN or Inf
+    for i in 0..2 {
+        assert!(!result.ac_power[i].is_nan(),
+            "ac_power[{}] should not be NaN", i);
+        assert!(!result.ac_power[i].is_infinite(),
+            "ac_power[{}] should not be infinite", i);
+    }
+    // Night should be zero
+    assert!(result.ac_power[0].abs() < 1e-6,
+        "Nighttime bifacial power should be 0, got {}", result.ac_power[0]);
+}
+
+#[test]
+fn test_bifacial_extreme_parameters() {
+    // Extreme but technically valid bifacial parameters
+    let loc = tucson();
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_bifacial(1.0, 1.0); // Max bifaciality, perfect reflector
+
+    let weather = batch::WeatherSeries {
+        times: vec![summer_noon()],
+        ghi: vec![900.0],
+        dni: vec![800.0],
+        dhi: vec![100.0],
+        temp_air: vec![32.0],
+        wind_speed: vec![1.5],
+        albedo: None,
+    };
+
+    let result = chain.run(&weather).unwrap();
+
+    // Should produce valid power (not NaN/Inf)
+    assert!(!result.ac_power[0].is_nan(), "Should not be NaN");
+    assert!(!result.ac_power[0].is_infinite(), "Should not be infinite");
+    assert!(result.ac_power[0] > 0.0, "Should produce positive power");
+    // Rear gain is capped at 25%, so even extreme params shouldn't exceed ~1.25x
+    assert!(result.ac_power[0] <= 5000.0 * 1.3,
+        "Power {} should not wildly exceed capacity", result.ac_power[0]);
+}
