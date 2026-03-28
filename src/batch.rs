@@ -412,6 +412,10 @@ pub struct BatchModelChain {
     /// When true, automatically decompose GHI into DNI/DHI using the Erbs model
     /// if DNI and DHI are both near zero but GHI is positive.
     pub auto_decomposition: bool,
+    /// Bifaciality factor: 0.0 = monofacial, 0.65-0.85 typical for bifacial modules.
+    pub bifaciality_factor: f64,
+    /// Ground albedo used for rear-side irradiance calculation.
+    pub bifacial_ground_albedo: f64,
 }
 
 impl BatchModelChain {
@@ -433,6 +437,8 @@ impl BatchModelChain {
             albedo: 0.2,
             transposition_model: irradiance::DiffuseModel::Perez,
             auto_decomposition: false,
+            bifaciality_factor: 0.0,
+            bifacial_ground_albedo: 0.2,
         }
     }
 
@@ -464,6 +470,16 @@ impl BatchModelChain {
     /// Builder: enable/disable automatic GHI to DNI/DHI decomposition via Erbs model.
     pub fn with_auto_decomposition(mut self, enabled: bool) -> Self {
         self.auto_decomposition = enabled;
+        self
+    }
+
+    /// Builder: set bifacial parameters.
+    ///
+    /// `bifaciality_factor` is typically 0.65-0.85 for bifacial modules (0.0 = monofacial).
+    /// `ground_albedo` is the albedo used for rear-side irradiance calculation.
+    pub fn with_bifacial(mut self, bifaciality_factor: f64, ground_albedo: f64) -> Self {
+        self.bifaciality_factor = bifaciality_factor;
+        self.bifacial_ground_albedo = ground_albedo;
         self
     }
 
@@ -552,6 +568,15 @@ impl BatchModelChain {
                 pdc, self.system_capacity_dc,
                 self.inverter_efficiency, 0.9637,
             );
+
+            // 11. Bifacial rear-side gain
+            let pac = if self.bifaciality_factor > 0.0 && poa.poa_global > 10.0 {
+                let rear_gain = (self.bifaciality_factor * self.bifacial_ground_albedo
+                    * weather.ghi[i] / poa.poa_global).min(0.25);
+                pac * (1.0 + rear_gain)
+            } else {
+                pac
+            };
 
             Ok((solpos.zenith, solpos.azimuth, am_abs, aoi_val,
                 poa.poa_global, poa.poa_direct, poa.poa_diffuse,

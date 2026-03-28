@@ -808,3 +808,89 @@ fn test_auto_decomposition_matches_manual_erbs() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Bifacial Rear-Side Gain
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_batch_modelchain_bifacial() {
+    let loc = tucson();
+    let weather = batch::WeatherSeries {
+        times: vec![
+            Eastern.with_ymd_and_hms(2020, 6, 15, 10, 0, 0).unwrap(),
+            summer_noon(),
+            Eastern.with_ymd_and_hms(2020, 6, 15, 14, 0, 0).unwrap(),
+        ],
+        ghi: vec![600.0, 900.0, 700.0],
+        dni: vec![500.0, 800.0, 600.0],
+        dhi: vec![100.0, 100.0, 100.0],
+        temp_air: vec![28.0, 32.0, 30.0],
+        wind_speed: vec![2.0, 1.5, 2.5],
+        albedo: None,
+    };
+
+    // Monofacial baseline
+    let mono = batch::BatchModelChain::pvwatts(loc.clone(), 30.0, 180.0, 5000.0);
+    let result_mono = mono.run(&weather).unwrap();
+
+    // Bifacial with typical parameters
+    let bifi = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_bifacial(0.75, 0.25);
+    let result_bifi = bifi.run(&weather).unwrap();
+
+    // Bifacial should produce more power than monofacial
+    for i in 0..3 {
+        assert!(
+            result_bifi.ac_power[i] > result_mono.ac_power[i],
+            "bifacial ac_power[{}] ({}) should exceed monofacial ({})",
+            i, result_bifi.ac_power[i], result_mono.ac_power[i]
+        );
+        // Ratio should be reasonable: less than 1.26 (25% cap + margin)
+        let ratio = result_bifi.ac_power[i] / result_mono.ac_power[i];
+        assert!(
+            ratio < 1.26,
+            "bifacial/monofacial ratio at [{}] is {}, expected < 1.26",
+            i, ratio
+        );
+    }
+
+    // Total energy should also be higher
+    assert!(result_bifi.total_energy_wh() > result_mono.total_energy_wh());
+}
+
+#[test]
+fn test_batch_modelchain_bifacial_zero_means_no_gain() {
+    let loc = tucson();
+    let weather = batch::WeatherSeries {
+        times: vec![
+            Eastern.with_ymd_and_hms(2020, 6, 15, 10, 0, 0).unwrap(),
+            summer_noon(),
+            Eastern.with_ymd_and_hms(2020, 6, 15, 14, 0, 0).unwrap(),
+        ],
+        ghi: vec![600.0, 900.0, 700.0],
+        dni: vec![500.0, 800.0, 600.0],
+        dhi: vec![100.0, 100.0, 100.0],
+        temp_air: vec![28.0, 32.0, 30.0],
+        wind_speed: vec![2.0, 1.5, 2.5],
+        albedo: None,
+    };
+
+    // Default (bifaciality_factor = 0.0)
+    let chain_default = batch::BatchModelChain::pvwatts(loc.clone(), 30.0, 180.0, 5000.0);
+    let result_default = chain_default.run(&weather).unwrap();
+
+    // Explicitly set bifaciality_factor = 0.0 via builder
+    let chain_zero = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_bifacial(0.0, 0.3);
+    let result_zero = chain_zero.run(&weather).unwrap();
+
+    // Should be exactly identical
+    for i in 0..3 {
+        assert_eq!(
+            result_default.ac_power[i], result_zero.ac_power[i],
+            "ac_power[{}] mismatch: default={} zero_bifacial={}",
+            i, result_default.ac_power[i], result_zero.ac_power[i]
+        );
+    }
+}
