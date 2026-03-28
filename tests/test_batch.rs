@@ -278,6 +278,7 @@ fn test_batch_modelchain_builder() {
 fn test_simulation_series_helpers() {
     let series = batch::SimulationSeries {
         solar_zenith: vec![30.0, 40.0, 50.0],
+        solar_elevation: vec![60.0, 50.0, 40.0],
         solar_azimuth: vec![180.0, 190.0, 200.0],
         airmass: vec![1.1, 1.3, 1.5],
         aoi: vec![10.0, 20.0, 30.0],
@@ -308,6 +309,7 @@ fn test_simulation_series_helpers() {
 fn test_simulation_series_edge_cases() {
     let empty = batch::SimulationSeries {
         solar_zenith: vec![],
+        solar_elevation: vec![],
         solar_azimuth: vec![],
         airmass: vec![],
         aoi: vec![],
@@ -547,4 +549,42 @@ fn test_batch_modelchain_tmy_year_performance() {
     // but should be in a reasonable range
     assert!(cf > 0.01, "Capacity factor too low: {}", cf);
     assert!(cf < 0.5, "Capacity factor too high: {}", cf);
+}
+
+// ---------------------------------------------------------------------------
+// Solar Elevation
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_simulation_series_has_elevation() {
+    let loc = tucson();
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0);
+
+    let weather = batch::WeatherSeries {
+        times: vec![
+            Eastern.with_ymd_and_hms(2020, 6, 15, 10, 0, 0).unwrap(),
+            summer_noon(),
+            Eastern.with_ymd_and_hms(2020, 6, 15, 14, 0, 0).unwrap(),
+        ],
+        ghi: vec![600.0, 900.0, 700.0],
+        dni: vec![500.0, 800.0, 600.0],
+        dhi: vec![100.0, 100.0, 100.0],
+        temp_air: vec![28.0, 32.0, 30.0],
+        wind_speed: vec![2.0, 1.5, 2.5],
+        albedo: None,
+    };
+
+    let result = chain.run(&weather).unwrap();
+
+    assert_eq!(result.solar_elevation.len(), 3);
+
+    // elevation + zenith = 90 for every timestep
+    for i in 0..3 {
+        let sum = result.solar_elevation[i] + result.solar_zenith[i];
+        assert!(
+            (sum - 90.0).abs() < 1e-10,
+            "elevation[{}] ({}) + zenith[{}] ({}) = {}, expected 90.0",
+            i, result.solar_elevation[i], i, result.solar_zenith[i], sum
+        );
+    }
 }

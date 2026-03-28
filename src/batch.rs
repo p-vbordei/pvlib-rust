@@ -308,6 +308,7 @@ pub struct WeatherSeries {
 #[derive(Debug, Clone)]
 pub struct SimulationSeries {
     pub solar_zenith: Vec<f64>,
+    pub solar_elevation: Vec<f64>,
     pub solar_azimuth: Vec<f64>,
     pub airmass: Vec<f64>,
     pub aoi: Vec<f64>,
@@ -486,6 +487,7 @@ impl BatchModelChain {
 
         Ok(SimulationSeries {
             solar_zenith: results.iter().map(|r| r.0).collect(),
+            solar_elevation: results.iter().map(|r| 90.0 - r.0).collect(),
             solar_azimuth: results.iter().map(|r| r.1).collect(),
             airmass: results.iter().map(|r| r.2).collect(),
             aoi: results.iter().map(|r| r.3).collect(),
