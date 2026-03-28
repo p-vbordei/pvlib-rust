@@ -15,10 +15,15 @@ pvlib-rust provides the same algorithms, accuracy, and modeling capabilities as 
 ## Features
 
 - **170+ public functions** across **24 modules**
-- **319 tests** with end-to-end validation
+- **337 tests** with end-to-end validation
 - **Batch processing** — rayon-parallelized, full TMY year (8760 hours) in ~4 ms
 - Full simulation pipeline via `ModelChain` (scalar) and `BatchModelChain` (time series)
 - Builder pattern API for ergonomic configuration
+- **Auto GHI decomposition** — handles weather APIs that only provide GHI (auto Erbs DNI/DHI)
+- **Bifacial support** — rear-side gain modeling with configurable bifaciality factor
+- **System losses** — built-in DC derating for wiring, soiling, mismatch
+- **NaN-safe** — gracefully handles missing values from upstream Python/Polars pipelines
+- **UTC convenience API** — `WeatherSeries::from_utc()` and `solar_position_batch_utc()` for weather API integration
 - Multiple model options at each step (5 transposition, 6 temperature, 5 IAM, 3 inverter)
 - Weather file I/O (TMY3, EPW) and PVGIS API client
 - IV curve fitting and single-diode model parameter extraction (Bishop88, De Soto)
@@ -31,7 +36,9 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pvlib = { git = "https://github.com/p-vbordei/pvlib-rust" }
+pvlib-rust = "0.1.4"
+# Or from git for latest:
+# pvlib = { package = "pvlib-rust", git = "https://github.com/p-vbordei/pvlib-rust" }
 ```
 
 ### Batch Simulation (Recommended for Production)
@@ -47,19 +54,22 @@ use pvlib::irradiance::DiffuseModel;
 
 let location = Location::new(39.74, -105.18, Mountain, 1830.0, "Golden, CO");
 
-// Builder pattern for ergonomic configuration
+// Builder pattern — configure system, losses, bifacial, auto-decomposition
 let mc = BatchModelChain::pvwatts(location, 30.0, 180.0, 5000.0)
     .with_gamma_pdc(-0.004)
     .with_inverter(5000.0, 0.96)
     .with_albedo(0.2)
-    .with_transposition(DiffuseModel::Perez);
+    .with_transposition(DiffuseModel::Perez)
+    .with_auto_decomposition(true)   // Auto Erbs GHI→DNI/DHI when missing
+    .with_system_losses(0.14)        // 14% DC derating (wiring, soiling, etc.)
+    .with_bifacial(0.7, 0.25);      // Bifacial: 70% rear efficiency, 25% ground albedo
 
 // Weather data — one value per hour (8760 for a full year)
 let weather = WeatherSeries {
     times,        // Vec<DateTime<Tz>>
     ghi,          // Vec<f64> — global horizontal irradiance [W/m2]
-    dni,          // Vec<f64> — direct normal irradiance [W/m2]
-    dhi,          // Vec<f64> — diffuse horizontal irradiance [W/m2]
+    dni,          // Vec<f64> — direct normal irradiance (zeros OK with auto-decomposition)
+    dhi,          // Vec<f64> — diffuse horizontal irradiance (zeros OK with auto-decomposition)
     temp_air,     // Vec<f64> — ambient temperature [C]
     wind_speed,   // Vec<f64> — wind speed [m/s]
     albedo: None, // Optional<Vec<f64>> — ground albedo
@@ -74,9 +84,29 @@ println!("Capacity factor: {:.1}%", results.capacity_factor(5000.0) * 100.0);
 
 // Access per-timestep results
 for i in 0..results.ac_power.len() {
-    // results.solar_zenith[i], results.poa_global[i],
+    // results.solar_zenith[i], results.solar_elevation[i], results.poa_global[i],
     // results.cell_temperature[i], results.dc_power[i], results.ac_power[i]
 }
+```
+
+#### UTC Convenience API
+
+For weather API data (typically UTC timestamps as `NaiveDateTime`):
+
+```rust
+use pvlib::batch::{BatchModelChain, WeatherSeries, solar_position_batch_utc};
+
+// Create WeatherSeries from UTC NaiveDateTime timestamps
+let weather = WeatherSeries::from_utc(
+    &timestamps,           // &[NaiveDateTime] — UTC
+    "US/Eastern",          // IANA timezone name
+    ghi, dni, dhi, temp_air, wind_speed,
+).unwrap();
+
+// Or get just solar position without a full simulation
+let (zenith, azimuth, elevation) = solar_position_batch_utc(
+    39.74, -105.18, 1830.0, &timestamps,
+).unwrap();
 ```
 
 Individual batch functions are also available for custom pipelines:
@@ -198,7 +228,7 @@ let pac = inverter::pvwatts_ac(4000.0, 5000.0, 0.96, 0.9637);
 
 | Module | Description | Key Functions |
 |--------|-------------|---------------|
-| `batch` | Rayon-parallelized batch operations | `BatchModelChain`, `solar_position_batch`, `ineichen_batch`, `erbs_batch`, `disc_batch`, `perez_batch`, `total_irradiance_batch`, `sapm_cell_temperature_batch`, `pvwatts_ac_batch` |
+| `batch` | Rayon-parallelized batch operations | `BatchModelChain` (with auto-decomposition, bifacial, system losses), `WeatherSeries::from_utc`, `solar_position_batch`, `solar_position_batch_utc`, `ineichen_batch`, `erbs_batch`, `disc_batch`, `perez_batch`, `total_irradiance_batch`, `sapm_cell_temperature_batch`, `pvwatts_ac_batch` |
 
 ### Advanced Features
 
@@ -308,7 +338,7 @@ pvlib-rust covers the core simulation pipeline of pvlib-python with significant 
 
 ```bash
 cargo build              # Build the library
-cargo test               # Run all 319 tests
+cargo test               # Run all 337 tests
 cargo test --release     # Run tests with optimizations (faster batch)
 cargo clippy             # Lint checks
 cargo doc --open         # Generate and view API documentation

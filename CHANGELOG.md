@@ -1,5 +1,22 @@
 # PvLib-Rust Changelog
 
+## [0.1.4] - 2026-03-28
+### Added
+- **Batch API Improvements** — 7 new features based on real-world production consumer feedback:
+    - `solar_elevation` field in `SimulationSeries` (eliminates `90 - zenith` boilerplate)
+    - `solar_position_batch_utc()` — accepts `NaiveDateTime` (UTC) directly, no `DateTime<Tz>` needed
+    - `WeatherSeries::from_utc()` — construct weather input from UTC timestamps + timezone string
+    - `with_auto_decomposition(true)` — auto Erbs GHI→DNI/DHI when DNI/DHI are zero or NaN
+    - `with_bifacial(factor, albedo)` — rear-side gain at DC level, capped at 25%
+    - `with_system_losses(0.14)` — flat DC derating, clamped to [0.0, 1.0]
+- **NaN Robustness** — NaN DNI/DHI from upstream Python/Polars pipelines treated as missing values, triggering auto-decomposition when enabled
+- **10 new edge-case tests** covering NaN propagation, loss clamping, bifacial zero-POA safety, extreme parameters
+
+### Fixed
+- Bifacial gain moved from post-AC to pre-inverter (DC level) — correct physics modeling
+- Zero clippy warnings (`cargo clippy -D warnings` passes clean)
+- 337 total tests (up from 319)
+
 ## [0.1.3] - 2026-03-22
 ### Added
 - **Performance & Architectural Certification**: Handled the "Ultimate 10x Performance Sweep". Scraped 10 major historical architectural bottlenecks from `pvlib-python` (including Pandas Memory Initialization locks, Numba JIT cache-leaking, timezone object-casting lags, and transcendental broadcasting limits).
