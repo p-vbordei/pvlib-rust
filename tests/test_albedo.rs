@@ -16,7 +16,7 @@ fn test_surface_albedo_unknown() {
 fn test_surface_albedo_range() {
     for surface in ["urban", "grass", "soil", "sand", "snow", "asphalt", "concrete", "sea"] {
         let a = surface_albedo(surface).unwrap();
-        assert!(a >= 0.0 && a <= 1.0, "{} albedo out of range: {}", surface, a);
+        assert!((0.0..=1.0).contains(&a), "{} albedo out of range: {}", surface, a);
     }
 }
 

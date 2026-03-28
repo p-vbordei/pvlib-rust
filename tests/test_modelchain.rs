@@ -294,7 +294,7 @@ fn test_different_transposition_models() {
         };
 
         let result = mc.run_model_from_weather(&weather)
-            .expect(&format!("Failed with transposition {:?}", transposition));
+            .unwrap_or_else(|_| panic!("Failed with transposition {:?}", transposition));
         assert!(result.dc_power > 0.0,
             "DC power should be positive with {:?}", transposition);
     }
@@ -337,7 +337,7 @@ fn test_different_temperature_models() {
         };
 
         let result = mc.run_model_from_weather(&weather)
-            .expect(&format!("Failed with temp model {:?}", temp_model));
+            .unwrap_or_else(|_| panic!("Failed with temp model {:?}", temp_model));
         assert!(result.cell_temperature > 25.0,
             "Cell temp should exceed ambient with {:?}, got {}", temp_model, result.cell_temperature);
     }

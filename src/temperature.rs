@@ -190,6 +190,7 @@ fn adj_for_mounting_standoff(x: f64) -> f64 {
 ///
 /// # References
 /// Gilman, P. et al, 2018, "SAM Photovoltaic Model Technical Reference Update", NREL/TP-6A20-67399.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn noct_sam(
     poa_global: f64,

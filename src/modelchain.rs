@@ -556,6 +556,7 @@ impl ModelChain {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn compute_from_poa(
         &self,
         solar_zenith: f64,

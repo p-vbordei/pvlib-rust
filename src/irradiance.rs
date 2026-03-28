@@ -53,6 +53,7 @@ pub fn isotropic(surface_tilt: f64, dhi: f64) -> f64 {
 /// # References
 /// Hay, J.E. and Davies, J.A., 1980, "Calculations of the solar radiation incident on an inclined surface", 
 /// in Proceedings of the First Canadian Solar Radiation Data Workshop.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn haydavies(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, _solar_azimuth: f64, aoi_in: f64) -> f64 {
     let mut a = 0.0;
@@ -99,6 +100,7 @@ pub fn klucher(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, ghi: f64, sol
 /// Perez, R., Ineichen, P., Seals, R., Michalsky, J. and Stewart, R., 1990, 
 /// "Modeling daylight availability and irradiance components from direct and global irradiance," 
 /// Solar Energy, 44(5), pp. 271-289.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn perez(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, _solar_azimuth: f64, airmass: f64, aoi_in: f64) -> f64 {
     let mut cos_z = solar_zenith.to_radians().cos();
@@ -616,7 +618,7 @@ pub fn erbs_driesse(ghi: f64, solar_zenith: f64, day_of_year: i32) -> ErbsDriess
     let kt = if ghi_extra > 0.0 { (ghi / ghi_extra).clamp(0.0, 1.0) } else { 0.0 };
 
     // Central polynomial coefficients
-    let p = [12.26911439571261, -16.4705084246973, 4.24692671521831700,
+    let p = [12.26911439571261, -16.4705084246973, 4.246926715218317,
              -0.11390583806313881, 0.946296633571001];
 
     // Diffuse fraction
@@ -759,10 +761,10 @@ fn pd_splev(x: f64, coefs: &[f64; 13]) -> f64 {
 
     // Initialize: d[j] = coefs[span - k + j] for j = 0..=k
     let mut d = [0.0_f64; 3]; // k+1 = 3
-    for j in 0..=k {
+    for (j, d_j) in d.iter_mut().enumerate().take(k + 1) {
         let idx = span - k + j;
         if idx < 13 {
-            d[j] = coefs[idx];
+            *d_j = coefs[idx];
         }
     }
 

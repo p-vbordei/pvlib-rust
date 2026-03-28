@@ -3,7 +3,6 @@
 ///
 /// All assertions use exact f64 equality (`==`) because the batch wrappers
 /// must call the exact same scalar function -- no approximation is involved.
-
 use chrono::TimeZone;
 use chrono_tz::US::Eastern;
 

@@ -231,6 +231,7 @@ pub fn detect_clearsky(ghi: f64, clearsky_ghi: f64, _window_length: usize) -> bo
 /// # References
 /// R. E. Bird and R. L. Hulstrom, "A Simplified Clear Sky model for
 /// Direct and Diffuse Insolation on Horizontal Surfaces", SERI/TR-642-761, 1981.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn bird(
     zenith: f64,
@@ -389,7 +390,7 @@ pub fn lookup_linke_turbidity(latitude: f64, longitude: f64, month: u32) -> f64 
     // Seasonal adjustment: summer months have higher turbidity
     let is_northern = latitude >= 0.0;
     let is_summer = if is_northern {
-        month >= 5 && month <= 9
+        (5..=9).contains(&month)
     } else {
         month <= 3 || month >= 11
     };

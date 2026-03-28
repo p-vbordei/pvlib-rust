@@ -496,7 +496,7 @@ fn test_batch_modelchain_tmy_year_performance() {
     // Synthetic sinusoidal weather data
     let ghi: Vec<f64> = (0..n).map(|h| {
         let hour_of_day = (h % 24) as f64;
-        if hour_of_day >= 6.0 && hour_of_day <= 18.0 {
+        if (6.0..=18.0).contains(&hour_of_day) {
             let solar_fraction = ((hour_of_day - 6.0) / 6.0 * std::f64::consts::PI).sin();
             800.0 * solar_fraction
         } else {

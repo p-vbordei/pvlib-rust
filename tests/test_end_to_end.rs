@@ -385,9 +385,9 @@ fn test_e2e_tracking_geometry() {
         60.0, true, 0.35, 0.0,
     );
 
-    assert!(surface_tilt >= 0.0 && surface_tilt <= 60.0,
+    assert!((0.0..=60.0).contains(&surface_tilt),
         "Surface tilt should be 0-60°, got {}", surface_tilt);
-    assert!(aoi_val >= 0.0 && aoi_val < 90.0, "AOI should be 0-90°, got {}", aoi_val);
+    assert!((0.0..90.0).contains(&aoi_val), "AOI should be 0-90°, got {}", aoi_val);
 
     // calc_surface_orientation consistency
     let (tilt2, _az2) = tracking::calc_surface_orientation(surface_tilt, 0.0, 0.0);
@@ -405,7 +405,7 @@ fn test_e2e_loss_factors() {
     assert!(ga > 0.0 && ga < 45.0, "Ground angle should be 0-45°, got {}", ga);
 
     let ma = shading::masking_angle_passias(25.0, 0.4);
-    assert!(ma >= 0.0 && ma < 90.0, "Masking angle should be 0-90°, got {}", ma);
+    assert!((0.0..90.0).contains(&ma), "Masking angle should be 0-90°, got {}", ma);
 
     // Snow losses
     assert!((snow::dc_loss_nrel(1.0, 3) - 1.0).abs() < 0.01);

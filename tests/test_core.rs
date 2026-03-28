@@ -6,10 +6,10 @@ use pvlib::irradiance::{aoi, isotropic, erbs, get_extra_radiation,
     aoi_projection, beam_component, get_ground_diffuse, poa_components,
     get_total_irradiance, DiffuseModel, disc, erbs_driesse, king, dirindex,
     perez, perez_driesse};
-use pvlib::temperature::{sapm_cell_temperature, pvsyst_cell_temperature};
+use pvlib::temperature::sapm_cell_temperature;
 use pvlib::singlediode::{i_from_v, v_from_i};
-use pvlib::iam::{ashrae, martin_ruiz};
-use pvlib::pvsystem::{PVSystem, calcparams_desoto, calcparams_cec, calcparams_pvsyst,
+use pvlib::iam::ashrae;
+use pvlib::pvsystem::{calcparams_desoto, calcparams_cec, calcparams_pvsyst,
     sapm as sapm_model, sapm_effective_irradiance, SAPMParams};
 use pvlib::inverter::pvwatts_ac;
 

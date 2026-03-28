@@ -23,6 +23,7 @@ use std::f64::consts::PI;
 /// 
 /// # Returns
 /// Back surface irradiance in W/m^2.
+#[allow(clippy::too_many_arguments)]
 pub fn get_irradiance_infinite_sheds(
     surface_tilt: f64,
     _surface_azimuth: f64,

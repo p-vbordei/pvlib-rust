@@ -1,6 +1,6 @@
-/// IV curve tools: utilities and parameter fitting for the single diode model.
-///
-/// Ported from pvlib-python `pvlib.ivtools`.
+//! IV curve tools: utilities and parameter fitting for the single diode model.
+//!
+//! Ported from pvlib-python `pvlib.ivtools`.
 
 /// Result of fitting the single diode model to an IV curve or module specs.
 #[derive(Debug, Clone)]
@@ -260,6 +260,7 @@ fn calc_i0(voltage: f64, current: f64, iph: f64, gsh: f64, rs: f64, n_ns_vth: f6
 ///
 /// # Errors
 /// Returns `Err` if the Newton solver does not converge.
+#[allow(clippy::too_many_arguments)]
 pub fn fit_desoto(
     v_mp: f64,
     i_mp: f64,
@@ -461,6 +462,7 @@ fn lstsq_3(a: &[[f64; 3]], b: &[f64]) -> Result<[f64; 3], String> {
 }
 
 /// Solve 3x3 linear system via Gaussian elimination with partial pivoting.
+#[allow(clippy::needless_range_loop)]
 fn solve_3x3(a: &[[f64; 3]; 3], b: &[f64; 3]) -> Option<[f64; 3]> {
     let mut aug = [[0.0; 4]; 3];
     for i in 0..3 {
@@ -507,6 +509,7 @@ fn solve_3x3(a: &[[f64; 3]; 3], b: &[f64; 3]) -> Option<[f64; 3]> {
 }
 
 /// Solve 5x5 linear system via Gaussian elimination with partial pivoting.
+#[allow(clippy::needless_range_loop)]
 fn solve_5x5(a: &[[f64; 5]; 5], b: &[f64; 5]) -> Option<[f64; 5]> {
     let mut aug = [[0.0; 6]; 5];
     for i in 0..5 {

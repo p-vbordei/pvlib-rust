@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use rayon::prelude::*;
 use chrono::TimeZone;
 use crate::{solarposition, atmosphere, clearsky, irradiance, temperature, iam, inverter};
@@ -476,9 +478,9 @@ impl BatchModelChain {
         self
     }
 
-    /// Builder: set system losses (0.0 = no losses, 0.14 = 14% losses).
+    /// Builder: set system losses (0.0 = no losses, 0.14 = 14% losses). Clamped to [0.0, 1.0].
     pub fn with_system_losses(mut self, losses: f64) -> Self {
-        self.system_losses = losses;
+        self.system_losses = losses.clamp(0.0, 1.0);
         self
     }
 
@@ -534,8 +536,8 @@ impl BatchModelChain {
 
             // 4b. Auto-decompose GHI → DNI/DHI if enabled and needed
             let (dni_i, dhi_i) = if self.auto_decomposition
-                && weather.dni[i].abs() < 1.0
-                && weather.dhi[i].abs() < 1.0
+                && (weather.dni[i].abs() < 1.0 || weather.dni[i].is_nan())
+                && (weather.dhi[i].abs() < 1.0 || weather.dhi[i].is_nan())
                 && weather.ghi[i] > 0.0
             {
                 let dni_extra_val = dni_extra;

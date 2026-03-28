@@ -46,6 +46,7 @@ pub fn pvwatts_multi(pdc: &[f64], pdc0: f64, eta_inv_nom: f64, eta_inv_ref: f64)
 /// Internal Sandia efficiency calculation (without clipping/limits).
 ///
 /// Matches pvlib-python `_sandia_eff`.
+#[allow(clippy::too_many_arguments)]
 fn sandia_eff(
     v_dc: f64, p_dc: f64,
     p_aco: f64, p_dco: f64, v_dco: f64, p_so: f64,
@@ -83,6 +84,7 @@ fn sandia_eff(
 ///
 /// # Returns
 /// AC power output in Watts.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn sandia(
     v_dc: f64, p_dc: f64,
@@ -124,6 +126,7 @@ fn sandia_limits(power_ac: f64, p_dc: f64, p_aco: f64, p_nt: f64, p_so: f64) -> 
 ///
 /// # Panics
 /// Panics if `v_dc` and `p_dc` have different lengths.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn sandia_multi(
     v_dc: &[f64], p_dc: &[f64],

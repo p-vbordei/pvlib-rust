@@ -105,7 +105,7 @@ fn test_shaded_fraction_no_shade() {
 fn test_shaded_fraction_clamped() {
     // Result should always be between 0 and 1
     let sf = shaded_fraction1d(80.0, 135.0, 90.0, 30.0, 2.0, 3.0, 0.0, 0.0, 0.0);
-    assert!(sf >= 0.0 && sf <= 1.0, "Shaded fraction should be in [0,1], got {}", sf);
+    assert!((0.0..=1.0).contains(&sf), "Shaded fraction should be in [0,1], got {}", sf);
 }
 
 #[test]

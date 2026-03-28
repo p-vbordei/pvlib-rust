@@ -119,6 +119,7 @@ pub fn projected_solar_zenith_angle(
 ///
 /// # Returns
 /// Shaded fraction [0-1].
+#[allow(clippy::too_many_arguments)]
 pub fn shaded_fraction1d(
     solar_zenith: f64,
     solar_azimuth: f64,

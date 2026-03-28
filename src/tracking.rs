@@ -21,6 +21,7 @@
 /// # References
 /// Anderson, K., and Mikofski, M., 2020, "Slope-Aware Backtracking for
 /// Single-Axis Trackers", Technical Report NREL/TP-5K00-76626.
+#[allow(clippy::too_many_arguments)]
 pub fn singleaxis(
     solar_zenith: f64,
     solar_azimuth: f64,

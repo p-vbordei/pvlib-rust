@@ -94,6 +94,7 @@ pub fn hsu_soiling_ratio(accumulated_mass: f64) -> f64 {
 ///
 /// # Returns
 /// A tuple of (soiling_ratio, new_accumulated_mass).
+#[allow(clippy::too_many_arguments)]
 pub fn hsu(
     rainfall: f64,
     cleaning_threshold: f64,

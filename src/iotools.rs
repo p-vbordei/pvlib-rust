@@ -186,6 +186,7 @@ pub fn get_pvgis_tmy(
 /// * `peakpower` – Nominal PV system power in kW (required if `pvcalculation` is true).
 /// * `surface_tilt` – Tilt angle from horizontal (degrees).
 /// * `surface_azimuth` – Orientation clockwise from north (degrees). Converted to PVGIS convention internally.
+#[allow(clippy::too_many_arguments)]
 pub fn get_pvgis_hourly(
     latitude: f64,
     longitude: f64,

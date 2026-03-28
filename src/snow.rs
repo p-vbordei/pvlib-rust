@@ -84,6 +84,7 @@ pub fn fully_covered_nrel(snowfall: f64, timestep_hours: f64, threshold_snowfall
 /// # References
 /// Marion, B. et al. (2013). "Measured and modeled photovoltaic system
 /// energy losses from snow." Solar Energy 97, pp.112-121.
+#[allow(clippy::too_many_arguments)]
 pub fn coverage_nrel(
     snowfall: f64,
     poa_irradiance: f64,

@@ -236,7 +236,7 @@ pub fn calcparams_pvsyst(
 ) -> SDMParams {
     let irrad_ref = 1000.0;
     let temp_ref = 25.0;
-    let r_sh_exp = 5.5;
+    let r_sh_exp: f64 = 5.5;
     let tref_k = temp_ref + 273.15;
     let tcell_k = temp_cell + 273.15;
 
@@ -256,7 +256,7 @@ pub fn calcparams_pvsyst(
         * ((Q_C * eg_ref) / (KB_J * gamma) * (1.0 / tref_k - 1.0 / tcell_k)).exp();
 
     // Shunt resistance: PVsyst exponential model
-    let rsh_tmp = (r_sh_ref - r_sh_0 * (-r_sh_exp as f64).exp()) / (1.0 - (-r_sh_exp as f64).exp());
+    let rsh_tmp = (r_sh_ref - r_sh_0 * (-r_sh_exp).exp()) / (1.0 - (-r_sh_exp).exp());
     let rsh_base = rsh_tmp.max(0.0);
     let resistance_shunt = rsh_base
         + (r_sh_0 - rsh_base) * (-r_sh_exp * effective_irradiance / irrad_ref).exp();

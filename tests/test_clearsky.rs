@@ -63,19 +63,19 @@ fn test_bird_zenith_zero() {
 #[test]
 fn test_lookup_linke_turbidity_polar() {
     let lt = lookup_linke_turbidity(70.0, 25.0, 1); // winter in Arctic
-    assert!(lt >= 1.5 && lt <= 3.0, "Polar winter turbidity expected 2.0, got {}", lt);
+    assert!((1.5..=3.0).contains(&lt), "Polar winter turbidity expected 2.0, got {}", lt);
 }
 
 #[test]
 fn test_lookup_linke_turbidity_tropical() {
     let lt = lookup_linke_turbidity(5.0, 30.0, 7); // tropical summer
-    assert!(lt >= 3.5 && lt <= 5.5, "Tropical summer turbidity expected ~4.5, got {}", lt);
+    assert!((3.5..=5.5).contains(&lt), "Tropical summer turbidity expected ~4.5, got {}", lt);
 }
 
 #[test]
 fn test_lookup_linke_turbidity_desert() {
     let lt = lookup_linke_turbidity(28.0, 30.0, 7); // Sahara summer
-    assert!(lt >= 3.0 && lt <= 5.0, "Desert turbidity expected ~3.5-4.0, got {}", lt);
+    assert!((3.0..=5.0).contains(&lt), "Desert turbidity expected ~3.5-4.0, got {}", lt);
 }
 
 #[test]
