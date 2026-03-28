@@ -681,3 +681,130 @@ fn test_simulation_series_has_elevation() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Auto GHI→DNI/DHI Decomposition
+// ---------------------------------------------------------------------------
+
+/// Helper: build a daytime weather series with GHI-only (DNI/DHI = 0).
+fn ghi_only_weather() -> batch::WeatherSeries {
+    let times = vec![
+        Eastern.with_ymd_and_hms(2020, 6, 15, 10, 0, 0).unwrap(),
+        Eastern.with_ymd_and_hms(2020, 6, 15, 12, 0, 0).unwrap(),
+        Eastern.with_ymd_and_hms(2020, 6, 15, 14, 0, 0).unwrap(),
+    ];
+    batch::WeatherSeries {
+        times,
+        ghi: vec![600.0, 900.0, 700.0],
+        dni: vec![0.0, 0.0, 0.0],
+        dhi: vec![0.0, 0.0, 0.0],
+        temp_air: vec![28.0, 32.0, 30.0],
+        wind_speed: vec![2.0, 1.5, 2.5],
+        albedo: None,
+    }
+}
+
+#[test]
+fn test_batch_modelchain_auto_decomposition() {
+    let loc = tucson();
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
+        .with_auto_decomposition(true);
+
+    assert!(chain.auto_decomposition);
+
+    let weather = ghi_only_weather();
+    let result = chain.run(&weather).unwrap();
+
+    assert_eq!(result.ac_power.len(), 3);
+    // With auto decomposition enabled, GHI-only data should produce positive power
+    for i in 0..3 {
+        assert!(
+            result.ac_power[i] > 0.0,
+            "ac_power[{}] = {} should be positive with auto decomposition",
+            i, result.ac_power[i]
+        );
+        assert!(
+            result.poa_global[i] > 0.0,
+            "poa_global[{}] = {} should be positive with auto decomposition",
+            i, result.poa_global[i]
+        );
+    }
+}
+
+#[test]
+fn test_batch_modelchain_no_decomposition_zero_power() {
+    let loc = tucson();
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0);
+
+    assert!(!chain.auto_decomposition);
+
+    let weather = ghi_only_weather();
+    let result = chain.run(&weather).unwrap();
+
+    // Without auto decomposition, zero DNI/DHI should produce near-zero poa_direct
+    for i in 0..3 {
+        assert!(
+            result.poa_direct[i].abs() < 1.0,
+            "poa_direct[{}] = {} should be near-zero without decomposition",
+            i, result.poa_direct[i]
+        );
+    }
+}
+
+#[test]
+fn test_auto_decomposition_matches_manual_erbs() {
+    let loc = tucson();
+
+    // Step 1: Run with auto decomposition on GHI-only data
+    let chain_auto = batch::BatchModelChain::pvwatts(loc.clone(), 30.0, 180.0, 5000.0)
+        .with_auto_decomposition(true);
+    let weather_ghi_only = ghi_only_weather();
+    let result_auto = chain_auto.run(&weather_ghi_only).unwrap();
+
+    // Step 2: Manually decompose GHI via erbs, then run without auto decomposition
+    let times = &weather_ghi_only.times;
+    let ghi = &weather_ghi_only.ghi;
+    let mut manual_dni = Vec::new();
+    let mut manual_dhi = Vec::new();
+
+    for i in 0..times.len() {
+        let solpos = pvlib::solarposition::get_solarposition(&loc, times[i]).unwrap();
+        let doy: i32 = times[i].format("%j").to_string().parse().unwrap_or(1);
+        let dni_extra = irradiance::get_extra_radiation(doy);
+        let (dni, dhi) = irradiance::erbs(ghi[i], solpos.zenith, doy as u32, dni_extra);
+        manual_dni.push(dni);
+        manual_dhi.push(dhi);
+    }
+
+    let weather_manual = batch::WeatherSeries {
+        times: times.clone(),
+        ghi: ghi.clone(),
+        dni: manual_dni,
+        dhi: manual_dhi,
+        temp_air: weather_ghi_only.temp_air.clone(),
+        wind_speed: weather_ghi_only.wind_speed.clone(),
+        albedo: None,
+    };
+
+    let chain_manual = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0);
+    let result_manual = chain_manual.run(&weather_manual).unwrap();
+
+    // Step 3: Compare results -- should be identical
+    for i in 0..times.len() {
+        assert!(
+            (result_auto.poa_global[i] - result_manual.poa_global[i]).abs() < 1e-6,
+            "poa_global mismatch at {}: auto={} manual={}",
+            i, result_auto.poa_global[i], result_manual.poa_global[i]
+        );
+        assert!(
+            (result_auto.ac_power[i] - result_manual.ac_power[i]).abs() < 1e-6,
+            "ac_power mismatch at {}: auto={} manual={}",
+            i, result_auto.ac_power[i], result_manual.ac_power[i]
+        );
+        assert!(
+            (result_auto.dc_power[i] - result_manual.dc_power[i]).abs() < 1e-6,
+            "dc_power mismatch at {}: auto={} manual={}",
+            i, result_auto.dc_power[i], result_manual.dc_power[i]
+        );
+    }
+}

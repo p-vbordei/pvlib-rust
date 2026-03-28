@@ -409,6 +409,9 @@ pub struct BatchModelChain {
     pub inverter_efficiency: f64,
     pub albedo: f64,
     pub transposition_model: irradiance::DiffuseModel,
+    /// When true, automatically decompose GHI into DNI/DHI using the Erbs model
+    /// if DNI and DHI are both near zero but GHI is positive.
+    pub auto_decomposition: bool,
 }
 
 impl BatchModelChain {
@@ -429,6 +432,7 @@ impl BatchModelChain {
             inverter_efficiency: 0.96,
             albedo: 0.2,
             transposition_model: irradiance::DiffuseModel::Perez,
+            auto_decomposition: false,
         }
     }
 
@@ -454,6 +458,12 @@ impl BatchModelChain {
     /// Builder: set transposition model.
     pub fn with_transposition(mut self, model: irradiance::DiffuseModel) -> Self {
         self.transposition_model = model;
+        self
+    }
+
+    /// Builder: enable/disable automatic GHI to DNI/DHI decomposition via Erbs model.
+    pub fn with_auto_decomposition(mut self, enabled: bool) -> Self {
+        self.auto_decomposition = enabled;
         self
     }
 
@@ -497,11 +507,23 @@ impl BatchModelChain {
             let doy = weather.times[i].format("%j").to_string().parse::<i32>().unwrap_or(1);
             let dni_extra = irradiance::get_extra_radiation(doy);
 
+            // 4b. Auto-decompose GHI → DNI/DHI if enabled and needed
+            let (dni_i, dhi_i) = if self.auto_decomposition
+                && weather.dni[i].abs() < 1.0
+                && weather.dhi[i].abs() < 1.0
+                && weather.ghi[i] > 0.0
+            {
+                let dni_extra_val = dni_extra;
+                irradiance::erbs(weather.ghi[i], solpos.zenith, doy as u32, dni_extra_val)
+            } else {
+                (weather.dni[i], weather.dhi[i])
+            };
+
             // 5. Transposition
             let poa = irradiance::get_total_irradiance(
                 self.surface_tilt, self.surface_azimuth,
                 solpos.zenith, solpos.azimuth,
-                weather.dni[i], weather.ghi[i], weather.dhi[i],
+                dni_i, weather.ghi[i], dhi_i,
                 weather.albedo.as_ref().map_or(albedo_default, |a| a[i]),
                 self.transposition_model,
                 Some(dni_extra),
