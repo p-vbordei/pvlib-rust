@@ -6,11 +6,18 @@ pvlib-rust provides the same algorithms, accuracy, and modeling capabilities as 
 
 ## Performance
 
-| Operation | pvlib-python | pvlib-rust | Speedup |
-|-----------|-------------|------------|---------|
-| TMY year (8760 hours) | ~2-5 seconds | ~4 ms | **500-1250x** |
-| Single timestep | ~0.5 ms | ~0.5 us | **~1000x** |
+Indicative numbers on a modern x86_64 laptop, measured with the in-tree
+`benches/batch_tmy.rs` harness. Values depend on CPU, rayon thread count,
+and the specific Python configuration compared against.
+
+| Operation | pvlib-python (vectorized) | pvlib-rust | Typical ratio |
+|-----------|---------------------------|------------|---------------|
+| TMY year (8760 hours) | ~0.3-1.5 s | tens of ms | ~10-50x |
+| Single timestep | ~0.1-0.5 ms | ~0.5-5 us | ~100-1000x |
 | Parallelism | Manual (multiprocessing) | Automatic (rayon) | Built-in |
+
+Run `cargo bench` to reproduce on your hardware; please open an issue
+with findings rather than relying on the table.
 
 ## Features
 
@@ -36,7 +43,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pvlib-rust = "0.1.4"
+pvlib-rust = "0.1.6"
 # Or from git for latest:
 # pvlib = { package = "pvlib-rust", git = "https://github.com/p-vbordei/pvlib-rust" }
 ```
@@ -325,7 +332,7 @@ pvlib-rust covers the core simulation pipeline of pvlib-python with significant 
 
 | Aspect | pvlib-python | pvlib-rust |
 |--------|-------------|------------|
-| **Speed** | ~2-5s / TMY year | ~4ms / TMY year |
+| **Speed** | ~0.3-1.5s / TMY year (vectorized) | tens of ms / TMY year |
 | **Parallelism** | Manual multiprocessing | Automatic via rayon |
 | **Type safety** | Runtime errors | Compile-time checks |
 | **Memory** | pandas DataFrame overhead | Zero-copy slices |
@@ -347,7 +354,7 @@ cargo bench              # Run benchmarks (if configured)
 
 ## License
 
-Licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+Licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

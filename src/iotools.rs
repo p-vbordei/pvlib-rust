@@ -2,7 +2,39 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+#[cfg(feature = "pvgis")]
+use std::sync::OnceLock;
+#[cfg(feature = "pvgis")]
+use std::time::Duration;
 use serde_json::Value;
+
+// ---------------------------------------------------------------------------
+// Shared HTTP client
+// ---------------------------------------------------------------------------
+//
+// A single `reqwest::blocking::Client` is reused across PVGIS / SAM calls
+// to avoid rebuilding a TLS context on every request and — more importantly —
+// to impose a bounded timeout. The previous `reqwest::blocking::get(url)`
+// calls had no timeout and could hang a worker thread indefinitely on a
+// stalled connection or a slow DNS resolver.
+
+#[cfg(feature = "pvgis")]
+fn http_client() -> &'static reqwest::blocking::Client {
+    static CLIENT: OnceLock<reqwest::blocking::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .user_agent(concat!("pvlib-rust/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .expect("reqwest client build failed; rustls-tls is enabled by Cargo.toml")
+    })
+}
+
+#[cfg(feature = "pvgis")]
+fn http_get_text(url: &str) -> Result<String, Box<dyn Error>> {
+    let resp = http_client().get(url).send()?.error_for_status()?;
+    Ok(resp.text()?)
+}
 
 /// Retrieve a database from the SAM (System Advisor Model) library.
 /// Modeled after `pvlib.pvsystem.retrieve_sam`.
@@ -19,6 +51,7 @@ use serde_json::Value;
 /// # Returns
 /// A Vector of HashMaps, where each map corresponds to a row (usually an inverter or module)
 /// keyed by the column headers.
+#[cfg(feature = "pvgis")]
 pub fn retrieve_sam(name: &str) -> Result<Vec<HashMap<String, String>>, Box<dyn Error>> {
     let url = match name {
         "CEC Inverters" | "cecinverter" => "https://raw.githubusercontent.com/NREL/SAM/patch/deploy/libraries/CEC%20Inverters.csv",
@@ -26,7 +59,7 @@ pub fn retrieve_sam(name: &str) -> Result<Vec<HashMap<String, String>>, Box<dyn 
         _ => return Err(format!("Unknown SAM DB string. Please use 'CEC Inverters' or 'CEC Modules'. You provided: {}", name).into()),
     };
 
-    let response = reqwest::blocking::get(url)?.text()?;
+    let response = http_get_text(url)?;
     
     let mut reader = csv::ReaderBuilder::new()
         .flexible(true)
@@ -135,6 +168,7 @@ pub struct WeatherData {
 // PVGIS constants
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "pvgis")]
 const PVGIS_BASE_URL: &str = "https://re.jrc.ec.europa.eu/api/v5_3/";
 
 // ---------------------------------------------------------------------------
@@ -149,6 +183,7 @@ const PVGIS_BASE_URL: &str = "https://re.jrc.ec.europa.eu/api/v5_3/";
 /// * `outputformat` – Response format: `"json"`, `"csv"`, or `"epw"`.
 /// * `startyear` – Optional first year for TMY calculation.
 /// * `endyear` – Optional last year for TMY calculation.
+#[cfg(feature = "pvgis")]
 pub fn get_pvgis_tmy(
     latitude: f64,
     longitude: f64,
@@ -167,7 +202,7 @@ pub fn get_pvgis_tmy(
         url.push_str(&format!("&endyear={}", ey));
     }
 
-    let response = reqwest::blocking::get(&url)?.text()?;
+    let response = http_get_text(&url)?;
 
     match outputformat {
         "json" => parse_pvgis_tmy_json(&response),
@@ -186,6 +221,7 @@ pub fn get_pvgis_tmy(
 /// * `peakpower` – Nominal PV system power in kW (required if `pvcalculation` is true).
 /// * `surface_tilt` – Tilt angle from horizontal (degrees).
 /// * `surface_azimuth` – Orientation clockwise from north (degrees). Converted to PVGIS convention internally.
+#[cfg(feature = "pvgis")]
 #[allow(clippy::too_many_arguments)]
 pub fn get_pvgis_hourly(
     latitude: f64,
@@ -210,7 +246,7 @@ pub fn get_pvgis_hourly(
         url.push_str(&format!("&peakpower={}", pp));
     }
 
-    let response = reqwest::blocking::get(&url)?.text()?;
+    let response = http_get_text(&url)?;
     parse_pvgis_hourly_json(&response)
 }
 
@@ -218,6 +254,7 @@ pub fn get_pvgis_hourly(
 ///
 /// Returns a vector of (azimuth, elevation) pairs where azimuth follows
 /// the pvlib convention (north=0, clockwise, south=180).
+#[cfg(feature = "pvgis")]
 pub fn get_pvgis_horizon(
     latitude: f64,
     longitude: f64,
@@ -227,7 +264,7 @@ pub fn get_pvgis_horizon(
         PVGIS_BASE_URL, latitude, longitude,
     );
 
-    let response = reqwest::blocking::get(&url)?.text()?;
+    let response = http_get_text(&url)?;
     parse_pvgis_horizon_json(&response)
 }
 
@@ -446,20 +483,31 @@ pub fn read_tmy3(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
         }
         let fields: Vec<&str> = line.split(',').collect();
 
+        let get_field = |i: usize| -> Result<&str, Box<dyn Error>> {
+            fields.get(i).copied().ok_or_else(|| format!("missing TMY3 field {}", i).into())
+        };
+
         // Parse date MM/DD/YYYY
-        let date_parts: Vec<&str> = fields[i_date].split('/').collect();
+        let date_field = get_field(i_date)?;
+        let date_parts: Vec<&str> = date_field.split('/').collect();
+        if date_parts.len() != 3 {
+            return Err(format!("malformed TMY3 date field: {:?}", date_field).into());
+        }
         let month: u32 = date_parts[0].parse()?;
         let day: u32 = date_parts[1].parse()?;
         let year: i32 = date_parts[2].parse()?;
 
         // Parse time HH:MM — TMY3 uses 1-24, 24:00 means midnight next day
-        let time_parts: Vec<&str> = fields[i_time].split(':').collect();
+        let time_field = get_field(i_time)?;
+        let time_parts: Vec<&str> = time_field.split(':').collect();
+        if time_parts.is_empty() {
+            return Err(format!("malformed TMY3 time field: {:?}", time_field).into());
+        }
         let raw_hour: u32 = time_parts[0].parse()?;
         let hour = raw_hour % 24;
 
         let parse_f64 = |i: usize| -> Result<f64, Box<dyn Error>> {
-            fields.get(i).ok_or_else(|| format!("missing field {}", i))?
-                .trim().parse::<f64>().map_err(|e| e.into())
+            get_field(i)?.trim().parse::<f64>().map_err(|e| e.into())
         };
 
         let time_str = format!("{:04}{:02}{:02}:{:02}{:02}",
@@ -541,8 +589,11 @@ pub fn read_epw(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
             continue;
         }
 
+        let get_field = |i: usize| -> Result<&str, Box<dyn Error>> {
+            fields.get(i).copied().ok_or_else(|| format!("missing EPW field {}", i).into())
+        };
         let parse_f64 = |i: usize| -> Result<f64, Box<dyn Error>> {
-            fields[i].trim().parse::<f64>().map_err(|e| e.into())
+            get_field(i)?.trim().parse::<f64>().map_err(|e| e.into())
         };
 
         let try_parse_f64 = |i: usize| -> Option<f64> {
@@ -550,11 +601,11 @@ pub fn read_epw(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
         };
 
         // EPW hour is 1-24; convert to 0-23
-        let raw_hour: u32 = fields[3].trim().parse()?;
+        let raw_hour: u32 = get_field(3)?.trim().parse()?;
         let hour = if raw_hour == 0 { 0 } else { raw_hour - 1 };
-        let year: i32 = fields[0].trim().parse()?;
-        let month: u32 = fields[1].trim().parse()?;
-        let day: u32 = fields[2].trim().parse()?;
+        let year: i32 = get_field(0)?.trim().parse()?;
+        let month: u32 = get_field(1)?.trim().parse()?;
+        let day: u32 = get_field(2)?.trim().parse()?;
 
         let time_str = format!("{:04}{:02}{:02}:{:02}{:02}",
             year, month, day, hour, 0);

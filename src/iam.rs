@@ -96,8 +96,10 @@ pub fn physical(aoi: f64, n: f64, k: f64, l: f64) -> f64 {
     let tau_p = tau_p * (-k * l / cos_refr).exp();
     let tau_0 = tau_0 * (-k * l).exp();
 
-    // IAM = average of s and p, normalized by normal incidence
-    (tau_s + tau_p) / (2.0 * tau_0)
+    // IAM = average of s and p, normalized by normal incidence. Clamp
+    // to [0, 1] so tiny floating-point drift at grazing angles cannot
+    // produce an IAM > 1 or < 0 (matches `pvlib.iam.physical`).
+    ((tau_s + tau_p) / (2.0 * tau_0)).clamp(0.0, 1.0)
 }
 
 /// Schlick approximation of Fresnel reflection as IAM.

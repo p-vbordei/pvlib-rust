@@ -37,19 +37,33 @@ fn water_coefficients(surface_condition: &str) -> Option<(f64, f64)> {
 ///
 /// albedo = c^(r * sin(elevation) + 1)
 ///
+/// Returns `f64::NAN` for an unrecognised `surface_condition`. Use
+/// [`inland_water_dvoracek_try`] if you need to detect the unknown-condition
+/// case explicitly.
+///
 /// # Arguments
 /// * `solar_elevation` - Sun elevation angle in degrees.
-/// * `surface_condition` - Water surface condition string.
+/// * `surface_condition` - Water surface condition string. Known values:
+///   `clear_water_no_waves`, `clear_water_ripples_up_to_2.5cm`,
+///   `clear_water_ripples_larger_than_2.5cm_occasional_whitecaps`,
+///   `clear_water_frequent_whitecaps`, `green_water_ripples_up_to_2.5cm`,
+///   `muddy_water_no_waves`.
 ///
 /// # Returns
-/// Albedo value (dimensionless).
+/// Albedo value (dimensionless), or `f64::NAN` if `surface_condition` is unknown.
 #[inline]
 pub fn inland_water_dvoracek(solar_elevation: f64, surface_condition: &str) -> f64 {
-    let (c, r) = water_coefficients(surface_condition)
-        .unwrap_or_else(|| panic!("Unknown surface condition: {}", surface_condition));
+    inland_water_dvoracek_try(solar_elevation, surface_condition).unwrap_or(f64::NAN)
+}
 
+/// Fallible variant of [`inland_water_dvoracek`] — returns `None` when the
+/// `surface_condition` string is not one of the known Dvoracek categories,
+/// instead of silently producing `NaN`.
+#[inline]
+pub fn inland_water_dvoracek_try(solar_elevation: f64, surface_condition: &str) -> Option<f64> {
+    let (c, r) = water_coefficients(surface_condition)?;
     let elev = solar_elevation.max(0.0);
-    c.powf(r * elev.to_radians().sin() + 1.0)
+    Some(c.powf(r * elev.to_radians().sin() + 1.0))
 }
 
 /// Estimation of albedo for inland water bodies using custom coefficients.

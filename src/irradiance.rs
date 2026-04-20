@@ -145,6 +145,9 @@ pub fn perez(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_e
 /// Solar Energy, 28(4), pp. 293-302.
 #[inline]
 pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f64) {
+    if !ghi.is_finite() || !zenith.is_finite() || !dni_extra.is_finite() {
+        return (0.0, 0.0);
+    }
     if ghi <= 0.0 || zenith >= 87.0 { return (0.0, ghi); }
     let mut cos_z = zenith.to_radians().cos();
     if cos_z < 85.0_f64.to_radians().cos() { cos_z = 85.0_f64.to_radians().cos(); }
@@ -190,35 +193,147 @@ pub fn boland(ghi: f64, zenith: f64, dni_extra: f64) -> (f64, f64) {
     (dni, dhi)
 }
 
-/// DIRINT (Perez 1992) decomposition model.
-/// 
-/// Note: This is a highly simplified representation of DIRINT for estimating DNI 
-/// from GHI without full climatic parameter timeseries tracking.
-/// 
-/// # References
-/// Perez, R., Ineichen, P., Maxwell, E., Seals, R. and Zelenka, A., 1992. 
-/// "Dynamic global-to-direct irradiance conversion models."
+/// Zenith-independent clearness index (Perez eqn 1).
+///
+/// `kt' = kt / (1.031 · exp(-1.4 / (0.9 + 9.4/am)) + 0.1)`, clamped to
+/// `[0, max_clearness_index]`.
 #[inline]
-pub fn dirint(ghi: f64, zenith: f64, _dew_point: f64, _pressure: f64, dni_extra: f64) -> (f64, f64) {
-    // In a full time-series context, DIRINT uses persistence bins. 
-    // Here we approximate it by defaulting to a slightly more aggressive Erbs.
-    if ghi <= 0.0 || zenith >= 90.0 { return (0.0, 0.0); }
-    let cos_z = zenith.to_radians().cos().max(85.0_f64.to_radians().cos());
-    
-    let kt = ghi / (dni_extra * cos_z);
-    
-    // Approximate diffuse fraction
-    let kd = if kt <= 0.2 {
-        0.99
-    } else if kt <= 0.8 {
-        0.95 - 0.9 * (kt - 0.2)
+pub fn clearness_index_zenith_independent(
+    clearness_index: f64,
+    airmass: f64,
+    max_clearness_index: f64,
+) -> f64 {
+    if !clearness_index.is_finite() || !airmass.is_finite() || airmass <= 0.0 {
+        return 0.0;
+    }
+    let factor = 1.031 * (-1.4 / (0.9 + 9.4 / airmass)).exp() + 0.1;
+    (clearness_index / factor).clamp(0.0, max_clearness_index)
+}
+
+/// Precipitable water (cm) from surface dew-point temperature (Perez eqn 4).
+#[inline]
+pub fn precipitable_water_from_dew_point(temp_dew_c: f64) -> f64 {
+    (0.07 * temp_dew_c - 0.075).exp()
+}
+
+/// Determine DNI from GHI using the DIRINT modification of the DISC model.
+///
+/// Scalar version — assumes no temporal-persistence information (the
+/// `delta_kt'` bin is set to the "-1" fallback). For time-series input with
+/// adjacent samples, [`dirint_series`] propagates persistence and typically
+/// produces ~1–3 % better DNI accuracy when samples are ≤ 1 hour apart.
+///
+/// Faithful port of `pvlib.irradiance.dirint` (Perez, Ineichen, Maxwell,
+/// Seals & Zelenka, 1992). The 6×6×7×5 coefficient tensor lives in
+/// [`dirint_coeffs`](../dirint_coeffs/index.html).
+///
+/// # Parameters
+/// - `ghi`: Global horizontal irradiance [W/m²]
+/// - `solar_zenith`: True (not refraction-corrected) zenith angle [°]
+/// - `day_of_year`: Day of year (1–365/366)
+/// - `pressure_pa`: Atmospheric pressure [Pa] (use 101_325.0 for standard)
+/// - `temp_dew_c`: Optional surface dew-point temperature [°C]; `None`
+///   uses the pvlib default w = -1 fallback bin.
+///
+/// # Returns
+/// Direct normal irradiance [W/m²].
+#[inline]
+pub fn dirint(
+    ghi: f64,
+    solar_zenith: f64,
+    day_of_year: i32,
+    pressure_pa: f64,
+    temp_dew_c: Option<f64>,
+) -> f64 {
+    let disc_out = disc(ghi, solar_zenith, day_of_year, Some(pressure_pa));
+    let kt_prime =
+        clearness_index_zenith_independent(disc_out.kt, disc_out.airmass, 1.0);
+    let w = temp_dew_c.map_or(-1.0, precipitable_water_from_dew_point);
+    let m = crate::dirint_coeffs::coefficient(kt_prime, solar_zenith, -1.0, w).unwrap_or(f64::NAN);
+    if !m.is_finite() {
+        return 0.0;
+    }
+    (disc_out.dni * m).max(0.0)
+}
+
+/// Time-series DIRINT with temporal persistence (Perez eqn 2/3).
+///
+/// Faithful port of `pvlib.irradiance.dirint` for array input. For every
+/// index `i`, `delta_kt'[i]` is computed from neighbouring `kt'[i±1]`; the
+/// endpoints mirror their only neighbour (matching pvlib-python).
+///
+/// # Parameters
+/// - `ghi`, `solar_zenith`, `day_of_year` — parallel arrays, all length `n`.
+/// - `pressure_pa` — shared pressure (101_325.0 for standard) used by the
+///   internal DISC call for all samples.
+/// - `temp_dew_c` — optional per-sample dew point [°C]. Length must equal
+///   `ghi` when provided.
+/// - `use_delta_kt_prime` — when `false`, all samples use the
+///   persistence-fallback bin (equivalent to calling [`dirint`] in a loop).
+///
+/// # Panics
+///
+/// Panics if any of `solar_zenith`, `day_of_year`, or `temp_dew_c` has a
+/// different length than `ghi`.
+pub fn dirint_series(
+    ghi: &[f64],
+    solar_zenith: &[f64],
+    day_of_year: &[i32],
+    pressure_pa: f64,
+    temp_dew_c: Option<&[f64]>,
+    use_delta_kt_prime: bool,
+) -> Vec<f64> {
+    let n = ghi.len();
+    assert_eq!(solar_zenith.len(), n, "dirint_series: solar_zenith length mismatch");
+    assert_eq!(day_of_year.len(), n, "dirint_series: day_of_year length mismatch");
+    if let Some(td) = temp_dew_c {
+        assert_eq!(td.len(), n, "dirint_series: temp_dew_c length mismatch");
+    }
+    if n == 0 {
+        return Vec::new();
+    }
+
+    // Pre-compute DISC outputs and kt' for every timestep.
+    let mut dni_disc = Vec::with_capacity(n);
+    let mut kt_prime = Vec::with_capacity(n);
+    for i in 0..n {
+        let d = disc(ghi[i], solar_zenith[i], day_of_year[i], Some(pressure_pa));
+        dni_disc.push(d.dni);
+        kt_prime.push(clearness_index_zenith_independent(d.kt, d.airmass, 1.0));
+    }
+
+    // Compute delta_kt' (Perez eqn 2/3) or fall back to -1 if disabled.
+    let delta_kt_prime: Vec<f64> = if use_delta_kt_prime && n > 1 {
+        let mut out = Vec::with_capacity(n);
+        for i in 0..n {
+            // Endpoints mirror the opposite direction — see pvlib
+            // `_delta_kt_prime_dirint` (eqn 3).
+            let prev = if i == 0 { kt_prime[1] } else { kt_prime[i - 1] };
+            let next = if i + 1 >= n { kt_prime[n - 2] } else { kt_prime[i + 1] };
+            out.push(0.5 * ((kt_prime[i] - next).abs() + (kt_prime[i] - prev).abs()));
+        }
+        out
     } else {
-        0.15
+        vec![-1.0; n]
     };
-    
-    let dhi = ghi * kd.clamp(0.0, 1.0);
-    let dni = ((ghi - dhi) / cos_z).max(0.0);
-    (dni, dhi)
+
+    // Per-sample lookup + multiply.
+    let mut dni = Vec::with_capacity(n);
+    for i in 0..n {
+        let w = temp_dew_c
+            .map(|td| td[i])
+            .filter(|t| t.is_finite())
+            .map_or(-1.0, precipitable_water_from_dew_point);
+        let m = crate::dirint_coeffs::coefficient(
+            kt_prime[i],
+            solar_zenith[i],
+            delta_kt_prime[i],
+            w,
+        )
+        .unwrap_or(f64::NAN);
+        dni.push(if m.is_finite() { (dni_disc[i] * m).max(0.0) } else { 0.0 });
+    }
+    dni
 }
 
 /// POA direct beam.
@@ -267,18 +382,6 @@ pub fn clearness_index(ghi: f64, solar_zenith: f64, dni_extra: f64) -> f64 {
     let cos_z = solar_zenith.to_radians().cos().max(0.01);
     let ghi_extra = dni_extra * cos_z;
     if ghi_extra <= 0.0 { 0.0 } else { (ghi / ghi_extra).clamp(0.0, 1.0) }
-}
-
-/// Zenith-independent clearness index (Kt*).
-///
-/// # References
-/// Perez, R. et al., 1990. "Making full use of the clearness index for parameterizing hourly insolation conditions."
-#[inline]
-pub fn clearness_index_zenith_independent(clearness_idx: f64, _solar_zenith: f64, airmass_absolute: f64) -> f64 {
-    let am = airmass_absolute.max(1.0);
-    // Approximation of the geometric zenith independence formula
-    let denominator = 1.031 * (-1.4 / (0.9 + 9.4 / am)).exp() + 0.1;
-    (clearness_idx / denominator).max(0.0)
 }
 
 /// Cosine of the angle of incidence (AOI projection).
@@ -567,10 +670,16 @@ pub fn disc(ghi: f64, solar_zenith: f64, day_of_year: i32, pressure: Option<f64>
         am = atmosphere::get_absolute_airmass(am, p);
     }
 
+    // Guard against NaN airmass (e.g. numerical edge at the horizon)
+    // so that `disc_kn`'s exp cannot produce NaN DNI below the zenith cutoff.
+    if !am.is_finite() {
+        return DiscOutput { dni: 0.0, kt, airmass: f64::NAN };
+    }
+
     let (kn, am) = disc_kn(kt, am);
     let mut dni = kn * i0;
 
-    if solar_zenith > max_zenith || ghi < 0.0 || dni < 0.0 {
+    if solar_zenith > max_zenith || ghi < 0.0 || dni < 0.0 || !dni.is_finite() {
         dni = 0.0;
     }
 
@@ -688,11 +797,10 @@ pub fn dirindex(
     day_of_year: i32,
     pressure: Option<f64>,
 ) -> f64 {
-    let dni_extra = get_extra_radiation(day_of_year);
     let p = pressure.unwrap_or(101325.0);
 
-    let (dni_dirint, _) = dirint(ghi, zenith, 0.0, p, dni_extra);
-    let (dni_dirint_clear, _) = dirint(ghi_clearsky, zenith, 0.0, p, dni_extra);
+    let dni_dirint = dirint(ghi, zenith, day_of_year, p, None);
+    let dni_dirint_clear = dirint(ghi_clearsky, zenith, day_of_year, p, None);
 
     if dni_dirint_clear <= 0.0 {
         return 0.0;

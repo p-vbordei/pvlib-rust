@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 
 use rayon::prelude::*;
-use chrono::TimeZone;
+use chrono::{Datelike, TimeZone};
 use crate::{solarposition, atmosphere, clearsky, irradiance, temperature, iam, inverter};
 
 // ---------------------------------------------------------------------------
@@ -378,20 +378,45 @@ pub struct SimulationSeries {
 
 impl SimulationSeries {
     /// Total energy produced in Wh (assuming 1-hour timesteps).
+    ///
+    /// Negative and non-finite AC-power values (e.g. NaN from upstream weather
+    /// data) are excluded from the sum.
+    #[must_use]
     pub fn total_energy_wh(&self) -> f64 {
-        self.ac_power.iter().filter(|p| **p > 0.0).sum()
+        // `map + max(0.0)` keeps NaN out of the sum (NaN.max(0.0) is NaN, but
+        // a subsequent filter removes it) while being branchless enough for
+        // autovectorisation.
+        self.ac_power
+            .iter()
+            .filter(|p| p.is_finite() && **p > 0.0)
+            .sum()
     }
 
-    /// Peak AC power in W.
+    /// Peak AC power in W. Ignores non-finite values.
+    #[must_use]
     pub fn peak_power(&self) -> f64 {
-        self.ac_power.iter().cloned().fold(0.0_f64, f64::max)
+        self.ac_power
+            .iter()
+            .copied()
+            .filter(|p| p.is_finite())
+            .fold(0.0_f64, f64::max)
     }
 
     /// Capacity factor (ratio of actual energy to theoretical maximum).
+    #[must_use]
     pub fn capacity_factor(&self, system_capacity_w: f64) -> f64 {
         let hours = self.ac_power.len() as f64;
         if hours == 0.0 || system_capacity_w == 0.0 { return 0.0; }
         self.total_energy_wh() / (system_capacity_w * hours)
+    }
+
+    /// Number of timesteps in this series where the AC-power value is not
+    /// finite (typically NaN propagated from NaN-valued upstream weather).
+    /// Aggregate accessors above silently drop these; call this method if
+    /// you need to detect them explicitly.
+    #[must_use]
+    pub fn nan_count(&self) -> usize {
+        self.ac_power.iter().filter(|p| !p.is_finite()).count()
     }
 }
 
@@ -530,8 +555,11 @@ impl BatchModelChain {
                 solpos.zenith, solpos.azimuth,
             );
 
-            // 4. Extraterrestrial irradiance
-            let doy = weather.times[i].format("%j").to_string().parse::<i32>().unwrap_or(1);
+            // 4. Extraterrestrial irradiance. `ordinal()` is O(1) and
+            // allocation-free; the prior `format("%j").parse()` approach
+            // allocated two `String`s per timestep — a measurable cost on
+            // an 8760-row TMY run.
+            let doy = weather.times[i].ordinal() as i32;
             let dni_extra = irradiance::get_extra_radiation(doy);
 
             // 4b. Auto-decompose GHI → DNI/DHI if enabled and needed

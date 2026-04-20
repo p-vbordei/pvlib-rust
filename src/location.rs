@@ -18,8 +18,24 @@ pub struct Location {
     pub name: String,
 }
 
+/// Error produced by [`Location::try_new`] when a coordinate is out of range.
+#[derive(Debug, thiserror::Error, PartialEq)]
+pub enum LocationError {
+    #[error("latitude {0} is outside the valid range [-90, 90]")]
+    Latitude(f64),
+    #[error("longitude {0} is outside the valid range [-180, 180]")]
+    Longitude(f64),
+    #[error("altitude {0} is not a finite number")]
+    Altitude(f64),
+}
+
 impl Location {
     /// Create a new Location instance.
+    ///
+    /// Inputs are **not** validated — pass garbage latitude or longitude and
+    /// you will get garbage solar-position output. Use [`Location::try_new`]
+    /// at trust boundaries (weather API input, user-supplied config) for a
+    /// validated constructor.
     ///
     /// # Arguments
     ///
@@ -36,6 +52,29 @@ impl Location {
             altitude,
             name: name.to_string(),
         }
+    }
+
+    /// Create a new Location with validated coordinates.
+    ///
+    /// Returns `Err(LocationError)` if latitude is outside `[-90, 90]`,
+    /// longitude is outside `[-180, 180]`, or altitude is non-finite.
+    pub fn try_new(
+        latitude: f64,
+        longitude: f64,
+        tz: Tz,
+        altitude: f64,
+        name: &str,
+    ) -> Result<Self, LocationError> {
+        if !(-90.0..=90.0).contains(&latitude) || !latitude.is_finite() {
+            return Err(LocationError::Latitude(latitude));
+        }
+        if !(-180.0..=180.0).contains(&longitude) || !longitude.is_finite() {
+            return Err(LocationError::Longitude(longitude));
+        }
+        if !altitude.is_finite() {
+            return Err(LocationError::Altitude(altitude));
+        }
+        Ok(Self::new(latitude, longitude, tz, altitude, name))
     }
 
     /// Calculate the solar position for this location at the given time.

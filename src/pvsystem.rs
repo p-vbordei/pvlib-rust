@@ -1,4 +1,9 @@
-pub trait Mount {
+/// Orientation of a subset of a PV array (fixed tilt or tracked).
+///
+/// `Send + Sync` bounds are required so `Array`, `PVSystem`, and
+/// `ModelChain` can be shared across threads (e.g. wrapped in an `Arc`
+/// inside a web handler).
+pub trait Mount: Send + Sync {
     fn get_surface_tilt(&self) -> f64;
     fn get_surface_azimuth(&self) -> f64;
 }

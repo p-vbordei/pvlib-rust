@@ -18,6 +18,7 @@ use crate::inverter;
 
 /// DC power model selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DCModel {
     /// PVWatts simple linear model (nameplate * POA/1000 * temp correction)
     PVWatts,
@@ -25,17 +26,23 @@ pub enum DCModel {
 
 /// AC power model selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ACModel {
     /// PVWatts simple inverter model
     PVWatts,
-    /// Sandia inverter model
+    /// Sandia inverter model. Requires inverter parameters that are not yet
+    /// plumbed through `ModelChain`; selecting this variant currently panics.
+    /// See `ROADMAP.md`.
     Sandia,
-    /// ADR inverter model
+    /// ADR inverter model. Requires inverter parameters that are not yet
+    /// plumbed through `ModelChain`; selecting this variant currently panics.
+    /// See `ROADMAP.md`.
     ADR,
 }
 
 /// Angle-of-incidence (IAM) model selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AOIModel {
     /// Fresnel/Snell physical model
     Physical,
@@ -51,6 +58,7 @@ pub enum AOIModel {
 
 /// Spectral modifier model selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SpectralModel {
     /// No spectral losses
     NoLoss,
@@ -59,6 +67,7 @@ pub enum SpectralModel {
 /// Cell temperature model selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
+#[non_exhaustive]
 pub enum TemperatureModel {
     /// SAPM cell temperature model
     SAPM,
@@ -76,6 +85,7 @@ pub enum TemperatureModel {
 
 /// Transposition model selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TranspositionModel {
     /// Isotropic sky model
     Isotropic,
@@ -91,6 +101,7 @@ pub enum TranspositionModel {
 
 /// Losses model selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LossesModel {
     /// PVWatts default losses
     PVWatts,
@@ -406,7 +417,10 @@ impl ModelChain {
         let aoi_val = aoi(self.surface_tilt, self.surface_azimuth, solpos.zenith, solpos.azimuth);
 
         // 4. Day of year for extraterrestrial irradiance
-        let day_of_year = weather.time.format("%j").to_string().parse::<i32>().unwrap_or(1);
+        let day_of_year = {
+            use chrono::Datelike;
+            weather.time.ordinal() as i32
+        };
         let dni_extra = get_extra_radiation(day_of_year);
 
         // 5. Transposition -> POA components
@@ -537,7 +551,10 @@ impl ModelChain {
             (Some(ghi), _, _) => {
                 // Decompose GHI -> DNI + DHI using Erbs
                 let solpos = get_solarposition(&self.location, weather.time)?;
-                let day_of_year = weather.time.format("%j").to_string().parse::<i32>().unwrap_or(1);
+                let day_of_year = {
+            use chrono::Datelike;
+            weather.time.ordinal() as i32
+        };
                 let dni_extra = get_extra_radiation(day_of_year);
                 let (dni, dhi) = erbs(ghi, solpos.zenith, day_of_year as u32, dni_extra);
                 Ok((ghi, dni, dhi))
@@ -661,8 +678,20 @@ impl ModelChain {
         let eta_inv_ref = 0.9637;
         match self.config.ac_model {
             ACModel::PVWatts => inverter::pvwatts_ac(pdc, pdc0, eta_inv_nom, eta_inv_ref),
-            ACModel::Sandia => inverter::pvwatts_ac(pdc, pdc0, eta_inv_nom, eta_inv_ref), // TODO: use sandia() when inverter params available
-            ACModel::ADR => inverter::pvwatts_ac(pdc, pdc0, eta_inv_nom, eta_inv_ref), // TODO: use adr() when inverter params available
+            ACModel::Sandia | ACModel::ADR => {
+                // The Sandia and ADR inverter models require a full inverter
+                // parameter set (see `inverter::sandia` / `inverter::adr`)
+                // that is not yet plumbed through `ModelChain`. Fail loudly
+                // rather than silently producing PVWatts output under a
+                // different name. Tracked in ROADMAP.md.
+                panic!(
+                    "ACModel::{:?} is selected on ModelChain but is not wired up in \
+                     this release — construct the inverter parameters and call \
+                     `inverter::sandia` or `inverter::adr` directly, or use \
+                     `ACModel::PVWatts`.",
+                    self.config.ac_model
+                );
+            }
         }
     }
 }
