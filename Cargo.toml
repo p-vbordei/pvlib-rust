@@ -30,7 +30,7 @@ default = ["pvgis"]
 pvgis = ["dep:reqwest"]
 
 [dependencies]
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "std"] }
 chrono-tz = "0.10"
 csv = "1.4"
 rayon = "1.11"
