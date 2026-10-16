@@ -56,12 +56,7 @@ pub fn pvefficiency_adr(
 /// # Returns
 /// DC power in W.
 #[inline]
-pub fn huld(
-    effective_irradiance: f64,
-    temp_module: f64,
-    pdc0: f64,
-    k: [f64; 6],
-) -> f64 {
+pub fn huld(effective_irradiance: f64, temp_module: f64, pdc0: f64, k: [f64; 6]) -> f64 {
     let gprime = effective_irradiance / 1000.0;
     let tprime = temp_module - 25.0;
 

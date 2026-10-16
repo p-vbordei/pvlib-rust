@@ -1,45 +1,49 @@
 /// Spectral Mismatch Modifier (SMM)
-/// 
+///
 /// Applies a polynomial modifier based on Air Mass to account for spectral variations
 /// in module efficiency compared to STC (AM 1.5).
-/// 
+///
 /// # Arguments
 /// * `airmass_absolute` - The absolute air mass.
 /// * `coefficients` - 6 empirical polynomial coefficients [C0, C1, C2, C3, C4, C5].
-/// 
+///
 /// # Returns
 /// A unitless modifier to multiply against DC power or current.
 #[inline]
 pub fn spectral_mismatch_modifier(airmass_absolute: f64, coefficients: [f64; 6]) -> f64 {
     let x = airmass_absolute.max(1.0);
-    
+
     let ans = coefficients[0]
         + coefficients[1] * x
         + coefficients[2] * x.powi(2)
         + coefficients[3] * x.powi(3)
         + coefficients[4] * x.powi(4)
         + coefficients[5] * x.powi(5);
-        
+
     ans.max(0.0)
 }
 
 /// First Solar empirical spectral mismatch modifier.
-/// 
+///
 /// Evaluates the impact of precipitable water and airmass on CdTe and generic silicon spectrums.
-/// 
+///
 /// # References
 /// Lee, M. et al., 2018. "A new empirical model for spectral correction of PV performance."
 #[inline]
-pub fn first_solar_spectral_correction(precipitable_water: f64, airmass_absolute: f64, coefficients: [f64; 6]) -> f64 {
+pub fn first_solar_spectral_correction(
+    precipitable_water: f64,
+    airmass_absolute: f64,
+    coefficients: [f64; 6],
+) -> f64 {
     let pw = precipitable_water;
     let am = airmass_absolute;
-    let m = coefficients[0] 
-          + coefficients[1]*am 
-          + coefficients[2]*pw 
-          + coefficients[3]*am.sqrt()
-          + coefficients[4]*pw.sqrt()
-          + coefficients[5]*am/pw.sqrt();
-          
+    let m = coefficients[0]
+        + coefficients[1] * am
+        + coefficients[2] * pw
+        + coefficients[3] * am.sqrt()
+        + coefficients[4] * pw.sqrt()
+        + coefficients[5] * am / pw.sqrt();
+
     m.max(0.0)
 }
 
@@ -110,30 +114,29 @@ pub fn spectral_factor_caballero(
 pub fn caballero_coefficients(module_type: &str) -> Option<[f64; 12]> {
     match module_type {
         "cdte" => Some([
-            1.0044, 0.0095, -0.0037, 0.0002, 0.0000, -0.0046, -0.0182, 0.0, 0.0095, 0.0068,
-            0.0, 1.0,
+            1.0044, 0.0095, -0.0037, 0.0002, 0.0000, -0.0046, -0.0182, 0.0, 0.0095, 0.0068, 0.0,
+            1.0,
         ]),
         "monosi" => Some([
-            0.9706, 0.0377, -0.0123, 0.0025, -0.0002, 0.0159, -0.0165, 0.0, -0.0016, -0.0027,
-            1.0, 0.0,
+            0.9706, 0.0377, -0.0123, 0.0025, -0.0002, 0.0159, -0.0165, 0.0, -0.0016, -0.0027, 1.0,
+            0.0,
         ]),
         "multisi" => Some([
-            0.9836, 0.0254, -0.0085, 0.0016, -0.0001, 0.0094, -0.0132, 0.0, -0.0002, -0.0011,
-            1.0, 0.0,
+            0.9836, 0.0254, -0.0085, 0.0016, -0.0001, 0.0094, -0.0132, 0.0, -0.0002, -0.0011, 1.0,
+            0.0,
         ]),
         "cigs" => Some([
-            0.9801, 0.0283, -0.0092, 0.0019, -0.0001, 0.0117, -0.0126, 0.0, -0.0011, -0.0019,
-            1.0, 0.0,
+            0.9801, 0.0283, -0.0092, 0.0019, -0.0001, 0.0117, -0.0126, 0.0, -0.0011, -0.0019, 1.0,
+            0.0,
         ]),
         "asi" => Some([
             1.1060, -0.0848, 0.0302, -0.0076, 0.0006, -0.1283, 0.0986, -0.0254, 0.0156, 0.0146,
             1.0, 0.0,
         ]),
         "perovskite" => Some([
-            1.0637, -0.0491, 0.0180, -0.0047, 0.0004, -0.0773, 0.0583, -0.0159, 0.01251,
-            0.0109, 1.0, 0.0,
+            1.0637, -0.0491, 0.0180, -0.0047, 0.0004, -0.0773, 0.0583, -0.0159, 0.01251, 0.0109,
+            1.0, 0.0,
         ]),
         _ => None,
     }
 }
-

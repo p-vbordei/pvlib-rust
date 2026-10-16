@@ -15,8 +15,12 @@ pub struct FixedMount {
 }
 
 impl Mount for FixedMount {
-    fn get_surface_tilt(&self) -> f64 { self.surface_tilt }
-    fn get_surface_azimuth(&self) -> f64 { self.surface_azimuth }
+    fn get_surface_tilt(&self) -> f64 {
+        self.surface_tilt
+    }
+    fn get_surface_azimuth(&self) -> f64 {
+        self.surface_azimuth
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -29,8 +33,12 @@ pub struct SingleAxisTrackerMount {
 }
 
 impl Mount for SingleAxisTrackerMount {
-    fn get_surface_tilt(&self) -> f64 { self.axis_tilt } // Dynamic in reality, simplified here
-    fn get_surface_azimuth(&self) -> f64 { self.axis_azimuth }
+    fn get_surface_tilt(&self) -> f64 {
+        self.axis_tilt
+    } // Dynamic in reality, simplified here
+    fn get_surface_azimuth(&self) -> f64 {
+        self.axis_azimuth
+    }
 }
 
 /// Represents a subset of a PV system strings with identical orientation
@@ -50,7 +58,10 @@ pub struct PVSystem {
 
 impl PVSystem {
     pub fn new(arrays: Vec<Array>, inverter_capacity: f64) -> Self {
-        Self { arrays, inverter_capacity }
+        Self {
+            arrays,
+            inverter_capacity,
+        }
     }
 
     #[inline]
@@ -62,8 +73,10 @@ impl PVSystem {
     pub fn get_dc_power_total(&self, poa_global: f64, temp_cell: f64) -> f64 {
         let mut total_power = 0.0;
         for array in &self.arrays {
-             let pdc = array.nameplate_dc * (poa_global / 1000.0) * (1.0 + array.gamma_pdc * (temp_cell - 25.0));
-             total_power += pdc.max(0.0);
+            let pdc = array.nameplate_dc
+                * (poa_global / 1000.0)
+                * (1.0 + array.gamma_pdc * (temp_cell - 25.0));
+            total_power += pdc.max(0.0);
         }
         total_power
     }
@@ -139,8 +152,7 @@ pub fn calcparams_desoto(
 
     let n_ns_vth = a_ref * (tcell_k / tref_k);
 
-    let photocurrent = effective_irradiance / irrad_ref
-        * (i_l_ref + alpha_sc * (tcell_k - tref_k));
+    let photocurrent = effective_irradiance / irrad_ref * (i_l_ref + alpha_sc * (tcell_k - tref_k));
 
     let saturation_current = i_o_ref
         * (tcell_k / tref_k).powi(3)
@@ -252,8 +264,7 @@ pub fn calcparams_pvsyst(
     let n_ns_vth = gamma * KB_J / Q_C * (cells_in_series as f64) * tcell_k;
 
     // Photocurrent
-    let photocurrent = effective_irradiance / irrad_ref
-        * (i_l_ref + alpha_sc * (tcell_k - tref_k));
+    let photocurrent = effective_irradiance / irrad_ref * (i_l_ref + alpha_sc * (tcell_k - tref_k));
 
     // Saturation current (PVsyst uses q*Eg/(k*gamma) formulation)
     let saturation_current = i_o_ref
@@ -263,8 +274,8 @@ pub fn calcparams_pvsyst(
     // Shunt resistance: PVsyst exponential model
     let rsh_tmp = (r_sh_ref - r_sh_0 * (-r_sh_exp).exp()) / (1.0 - (-r_sh_exp).exp());
     let rsh_base = rsh_tmp.max(0.0);
-    let resistance_shunt = rsh_base
-        + (r_sh_0 - rsh_base) * (-r_sh_exp * effective_irradiance / irrad_ref).exp();
+    let resistance_shunt =
+        rsh_base + (r_sh_0 - rsh_base) * (-r_sh_exp * effective_irradiance / irrad_ref).exp();
 
     SDMParams {
         photocurrent,
@@ -374,8 +385,7 @@ pub fn sapm(effective_irradiance: f64, temp_cell: f64, module: &SAPMParams) -> S
 
     let i_sc = module.isco * ee * (1.0 + module.aisc * dt);
 
-    let i_mp = module.impo * (module.c0 * ee + module.c1 * ee.powi(2))
-        * (1.0 + module.aimp * dt);
+    let i_mp = module.impo * (module.c0 * ee + module.c1 * ee.powi(2)) * (1.0 + module.aimp * dt);
 
     let v_oc = (module.voco + cells * delta * log_ee + bvoco * dt).max(0.0);
 
@@ -387,7 +397,13 @@ pub fn sapm(effective_irradiance: f64, temp_cell: f64, module: &SAPMParams) -> S
 
     let p_mp = i_mp * v_mp;
 
-    SAPMOutput { i_sc, i_mp, v_oc, v_mp, p_mp }
+    SAPMOutput {
+        i_sc,
+        i_mp,
+        v_oc,
+        v_mp,
+        p_mp,
+    }
 }
 
 /// SAPM spectral factor: fourth-degree polynomial in airmass.
@@ -428,7 +444,9 @@ pub fn sapm_effective_irradiance(
     module: &SAPMParams,
 ) -> f64 {
     let f1 = sapm_spectral_factor(airmass_absolute, module);
-    let f2 = crate::iam::sapm(aoi_val, module.b0, module.b1, module.b2, module.b3, module.b4, module.b5);
+    let f2 = crate::iam::sapm(
+        aoi_val, module.b0, module.b1, module.b2, module.b3, module.b4, module.b5,
+    );
 
     f1 * (poa_direct * f2 + module.fd * poa_diffuse)
 }

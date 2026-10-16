@@ -5,15 +5,27 @@ use pvlib::soiling::*;
 #[test]
 fn test_hsu_clean_start() {
     let (ratio, mass) = hsu(0.0, 5.0, 20.0, 30e-6, 60e-6, 0.0009, 0.004, 3600.0, 0.0);
-    assert!(ratio <= 1.0 && ratio > 0.9, "Ratio should be near 1 for small accumulation, got {}", ratio);
+    assert!(
+        ratio <= 1.0 && ratio > 0.9,
+        "Ratio should be near 1 for small accumulation, got {}",
+        ratio
+    );
     assert!(mass > 0.0, "Mass should accumulate");
 }
 
 #[test]
 fn test_hsu_rain_cleaning() {
     let (ratio, mass) = hsu(10.0, 5.0, 20.0, 30e-6, 60e-6, 0.0009, 0.004, 3600.0, 1.0);
-    assert!(ratio > 0.99, "Should be nearly clean after rain, got {}", ratio);
-    assert!(mass < 0.01, "Mass should be near zero after cleaning, got {}", mass);
+    assert!(
+        ratio > 0.99,
+        "Should be nearly clean after rain, got {}",
+        ratio
+    );
+    assert!(
+        mass < 0.01,
+        "Mass should be near zero after cleaning, got {}",
+        mass
+    );
 }
 
 #[test]
@@ -23,7 +35,8 @@ fn test_hsu_mass_accumulates() {
     assert!(
         ratio_high < ratio_low,
         "More accumulated mass should give lower ratio: {} vs {}",
-        ratio_high, ratio_low
+        ratio_high,
+        ratio_low
     );
 }
 
@@ -53,7 +66,10 @@ fn test_hsu_mass_rate_horizontal() {
 #[test]
 fn test_kimber_rain_cleans() {
     let soiling = kimber(10.0, 6.0, 0.0015, 0.3, 1.0, 0.1, false);
-    assert!((soiling - 0.0).abs() < 1e-10, "Rain above threshold should clean");
+    assert!(
+        (soiling - 0.0).abs() < 1e-10,
+        "Rain above threshold should clean"
+    );
 }
 
 #[test]
@@ -63,14 +79,18 @@ fn test_kimber_accumulates() {
     assert!(
         (soiling - expected).abs() < 1e-10,
         "Should accumulate: expected {}, got {}",
-        expected, soiling
+        expected,
+        soiling
     );
 }
 
 #[test]
 fn test_kimber_grace_period() {
     let soiling = kimber(0.0, 6.0, 0.0015, 0.3, 1.0, 0.05, true);
-    assert!((soiling - 0.0).abs() < 1e-10, "Grace period should return 0");
+    assert!(
+        (soiling - 0.0).abs() < 1e-10,
+        "Grace period should return 0"
+    );
 }
 
 #[test]
@@ -80,7 +100,8 @@ fn test_kimber_max_soiling() {
     assert!(
         (soiling - expected).abs() < 1e-10,
         "Should cap at max_soiling: expected {}, got {}",
-        expected, soiling
+        expected,
+        soiling
     );
 }
 

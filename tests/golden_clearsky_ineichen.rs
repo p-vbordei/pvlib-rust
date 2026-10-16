@@ -45,7 +45,13 @@ fn ineichen_chain_matches_pvlib() {
         let ts = golden::parse_ts_z(&row.timestamp_utc);
         let dni_extra = irradiance::get_extra_radiation(golden::day_of_year(ts) as i32);
 
-        let cs = clearsky::ineichen(sa.apparent_zenith, am_abs, row.linke_turbidity, loc.alt, dni_extra);
+        let cs = clearsky::ineichen(
+            sa.apparent_zenith,
+            am_abs,
+            row.linke_turbidity,
+            loc.alt,
+            dni_extra,
+        );
 
         // Fixture rows are exactly 0.0 at night (asserted at fixture-generation
         // time too); pvlib-rust's ineichen() short-circuits to exact 0.0 for
@@ -61,7 +67,11 @@ fn ineichen_chain_matches_pvlib() {
         let slug = row.slug.clone();
         let ts_s = row.timestamp_utc.clone();
         let tl = row.linke_turbidity;
-        for (col, got, want) in [("ghi", cs.ghi, row.ghi), ("dni", cs.dni, row.dni), ("dhi", cs.dhi, row.dhi)] {
+        for (col, got, want) in [
+            ("ghi", cs.ghi, row.ghi),
+            ("dni", cs.dni, row.dni),
+            ("dhi", cs.dhi, row.dhi),
+        ] {
             let err = (got - want).abs();
             stats.record(&format!("{slug}|{col}"), err, || {
                 format!("slug={slug} ts={ts_s} TL={tl} col={col} got={got:.6} want={want:.6}")
@@ -79,15 +89,23 @@ fn ineichen_chain_matches_pvlib() {
         }
     }
 
-    stats.report("golden_clearsky_ineichen: ghi/dni/dhi vs pvlib (irradiance tolerance: max(1 W/m^2, 0.5%))");
+    stats.report(
+        "golden_clearsky_ineichen: ghi/dni/dhi vs pvlib (irradiance tolerance: max(1 W/m^2, 0.5%))",
+    );
     if !night_violations.is_empty() {
-        eprintln!("  NIGHT VIOLATIONS ({} rows nonzero when fixture says exactly 0):", night_violations.len());
+        eprintln!(
+            "  NIGHT VIOLATIONS ({} rows nonzero when fixture says exactly 0):",
+            night_violations.len()
+        );
         for v in night_violations.iter().take(10) {
             eprintln!("    {v}");
         }
     }
     if n_tol_violations > 0 {
-        eprintln!("  TOLERANCE VIOLATIONS: {n_tol_violations} (row, component) pairs exceeded max(1 W/m^2, 0.5% of want); first {}:", tol_violations.len());
+        eprintln!(
+            "  TOLERANCE VIOLATIONS: {n_tol_violations} (row, component) pairs exceeded max(1 W/m^2, 0.5% of want); first {}:",
+            tol_violations.len()
+        );
         for v in &tol_violations {
             eprintln!("    {v}");
         }

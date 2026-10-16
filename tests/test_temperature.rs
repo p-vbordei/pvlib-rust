@@ -1,7 +1,6 @@
 use pvlib::temperature::{
-    sapm_module, sapm_module_default, sapm_cell_from_module,
-    sapm_cell_from_module_default, noct_sam, noct_sam_default,
-    generic_linear, generic_linear_default,
+    generic_linear, generic_linear_default, noct_sam, noct_sam_default, sapm_cell_from_module,
+    sapm_cell_from_module_default, sapm_module, sapm_module_default,
 };
 
 #[test]

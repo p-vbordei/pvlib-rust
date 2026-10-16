@@ -16,12 +16,12 @@ pub struct BirdResult {
 }
 
 /// The Haurwitz clear sky model.
-/// Computes clear sky GHI (Global Horizontal Irradiance) 
+/// Computes clear sky GHI (Global Horizontal Irradiance)
 /// from apparent zenith angle.
-/// 
+///
 /// # Arguments
 /// * `zenith` - Apparent zenith angle in degrees.
-/// 
+///
 /// # Returns
 /// GHI in W/m^2. Returns 0.0 for zenith >= 90.
 #[inline]
@@ -33,15 +33,15 @@ pub fn haurwitz(zenith: f64) -> f64 {
     if cos_z <= 0.0 {
         return 0.0;
     }
-    
+
     1098.0 * cos_z * (-0.059 / cos_z).exp()
 }
 
 /// The Ineichen and Perez (2002) clear sky model.
-/// 
+///
 /// # References
 /// Ineichen, P. and Perez, R., 2002. "A new airmass independent formulation for the Linke turbidity coefficient."
-/// 
+///
 /// # Arguments
 /// * `zenith` - Apparent zenith angle in degrees.
 /// * `airmass_absolute` - Absolute air mass.
@@ -52,9 +52,19 @@ pub fn haurwitz(zenith: f64) -> f64 {
 /// # Returns
 /// A `ClearSkyIrradiance` struct containing GHI, DNI, and DHI in W/m^2.
 #[inline]
-pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitude: f64, dni_extra: f64) -> ClearSkyIrradiance {
+pub fn ineichen(
+    zenith: f64,
+    airmass_absolute: f64,
+    linke_turbidity: f64,
+    altitude: f64,
+    dni_extra: f64,
+) -> ClearSkyIrradiance {
     if zenith >= 90.0 || airmass_absolute <= 0.0 {
-        return ClearSkyIrradiance { ghi: 0.0, dni: 0.0, dhi: 0.0 };
+        return ClearSkyIrradiance {
+            ghi: 0.0,
+            dni: 0.0,
+            dhi: 0.0,
+        };
     }
 
     let am = airmass_absolute;
@@ -89,16 +99,20 @@ pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitu
     // DHI
     let dhi = ghi - dni * cos_z;
 
-    ClearSkyIrradiance { ghi: ghi.max(0.0), dni: dni.max(0.0), dhi: dhi.max(0.0) }
+    ClearSkyIrradiance {
+        ghi: ghi.max(0.0),
+        dni: dni.max(0.0),
+        dhi: dhi.max(0.0),
+    }
 }
 
 /// The Simplified Solis clear sky model.
-/// 
+///
 /// A broadly used broadband model leveraging aerosol depth and precipitable water.
-/// 
+///
 /// # References
 /// Ineichen, P., 2008. "A broadband simplified version of the Solis clear sky model."
-/// 
+///
 /// # Returns
 /// A `ClearSkyIrradiance` struct containing GHI, DNI, and DHI in W/m^2.
 /// Simplified Solis clear sky model.
@@ -115,9 +129,18 @@ pub fn ineichen(zenith: f64, airmass_absolute: f64, linke_turbidity: f64, altitu
 /// # Returns
 /// A `ClearSkyIrradiance` struct containing GHI, DNI, and DHI in W/m^2.
 #[inline]
-pub fn simplified_solis(apparent_elevation: f64, aod700: f64, precipitable_water: f64, pressure: f64) -> ClearSkyIrradiance {
+pub fn simplified_solis(
+    apparent_elevation: f64,
+    aod700: f64,
+    precipitable_water: f64,
+    pressure: f64,
+) -> ClearSkyIrradiance {
     if apparent_elevation <= 0.0 {
-        return ClearSkyIrradiance { ghi: 0.0, dni: 0.0, dhi: 0.0 };
+        return ClearSkyIrradiance {
+            ghi: 0.0,
+            dni: 0.0,
+            dhi: 0.0,
+        };
     }
 
     let dni_extra = 1364.0;
@@ -172,7 +195,8 @@ pub fn simplified_solis(apparent_elevation: f64, aod700: f64, precipitable_water
             -0.71 * (1.0 + aod).powf(-15.0),
         )
     };
-    let taud = td4 * aod.powi(4) + td3 * aod.powi(3) + td2 * aod.powi(2) + td1 * aod + td0 + tdp * ln_p;
+    let taud =
+        td4 * aod.powi(4) + td3 * aod.powi(3) + td2 * aod.powi(2) + td1 * aod + td0 + tdp * ln_p;
 
     let dp = 1.0 / (18.0 + 152.0 * aod);
     let d = -0.337 * aod * aod + 0.63 * aod + 0.116 + dp * ln_p;
@@ -393,11 +417,7 @@ pub fn detect_clearsky_detail(
             .zip(&scaled_clear)
             .map(|(m, c)| m - c)
             .collect();
-        let slope_max_diff = window_max_abs_diff(
-            &residual,
-            samples_per_window,
-            num_windows,
-        );
+        let slope_max_diff = window_max_abs_diff(&residual, samples_per_window, num_windows);
 
         for w in 0..num_windows {
             let line_diff = meas_line_length[w] - clear_line_length[w];
@@ -591,7 +611,12 @@ pub fn bird(
     albedo: f64,
 ) -> BirdResult {
     if zenith >= 90.0 || airmass_relative <= 0.0 {
-        return BirdResult { ghi: 0.0, dni: 0.0, dhi: 0.0, direct_horizontal: 0.0 };
+        return BirdResult {
+            ghi: 0.0,
+            dni: 0.0,
+            dhi: 0.0,
+            direct_horizontal: 0.0,
+        };
     }
 
     let etr = dni_extra;
@@ -602,9 +627,7 @@ pub fn bird(
     let am_press = airmass * (pressure / 101325.0);
 
     // Rayleigh scattering transmittance
-    let t_rayleigh = (-0.0903 * am_press.powf(0.84)
-        * (1.0 + am_press - am_press.powf(1.01)))
-    .exp();
+    let t_rayleigh = (-0.0903 * am_press.powf(0.84) * (1.0 + am_press - am_press.powf(1.01))).exp();
 
     // Ozone transmittance
     let am_o3 = ozone * airmass;
@@ -617,9 +640,7 @@ pub fn bird(
 
     // Water vapor transmittance
     let am_h2o = airmass * precipitable_water;
-    let t_water = 1.0
-        - 2.4959 * am_h2o
-            / ((1.0 + 79.034 * am_h2o).powf(0.6828) + 6.385 * am_h2o);
+    let t_water = 1.0 - 2.4959 * am_h2o / ((1.0 + 79.034 * am_h2o).powf(0.6828) + 6.385 * am_h2o);
 
     // Broadband aerosol optical depth (Bird-Hulstrom 1980)
     let bird_hulstrom = 0.27583 * aod380 + 0.35 * aod500;
@@ -727,11 +748,7 @@ pub fn lookup_linke_turbidity(latitude: f64, longitude: f64, month: u32) -> f64 
             && ((longitude > -20.0 && longitude < 60.0)   // Sahara + Arabian
                 || (longitude > 70.0 && longitude < 110.0) // Gobi / Thar
                 || (longitude > -120.0 && longitude < -100.0)); // SW US deserts
-        if is_desert_belt {
-            3.5
-        } else {
-            3.2
-        }
+        if is_desert_belt { 3.5 } else { 3.2 }
     } else {
         // Tropical: high humidity drives high turbidity
         4.0
@@ -745,11 +762,7 @@ pub fn lookup_linke_turbidity(latitude: f64, longitude: f64, month: u32) -> f64 
         month <= 3 || month >= 11
     };
 
-    if is_summer {
-        base + 0.5
-    } else {
-        base
-    }
+    if is_summer { base + 0.5 } else { base }
 }
 
 /// Monthly Linke turbidity climatology for continental Romania and the

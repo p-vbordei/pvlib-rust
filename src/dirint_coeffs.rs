@@ -372,52 +372,90 @@ pub(crate) const DIRINT_COEFFS: [[[[f64; 5]; 7]; 6]; 6] = [
 /// Assign the kt' bin index (0-indexed, returns `None` for unassigned).
 #[inline]
 pub(crate) fn kt_prime_bin(kt_prime: f64) -> Option<usize> {
-    if (0.0..0.24).contains(&kt_prime) { Some(0) }
-    else if (0.24..0.4).contains(&kt_prime) { Some(1) }
-    else if (0.4..0.56).contains(&kt_prime) { Some(2) }
-    else if (0.56..0.7).contains(&kt_prime) { Some(3) }
-    else if (0.7..0.8).contains(&kt_prime) { Some(4) }
-    else if (0.8..=1.0).contains(&kt_prime) { Some(5) }
-    else { None }
+    if (0.0..0.24).contains(&kt_prime) {
+        Some(0)
+    } else if (0.24..0.4).contains(&kt_prime) {
+        Some(1)
+    } else if (0.4..0.56).contains(&kt_prime) {
+        Some(2)
+    } else if (0.56..0.7).contains(&kt_prime) {
+        Some(3)
+    } else if (0.7..0.8).contains(&kt_prime) {
+        Some(4)
+    } else if (0.8..=1.0).contains(&kt_prime) {
+        Some(5)
+    } else {
+        None
+    }
 }
 
 /// Assign the zenith bin index (degrees). Returns `None` for unassigned.
 #[inline]
 pub(crate) fn zenith_bin(zenith_deg: f64) -> Option<usize> {
-    if !zenith_deg.is_finite() || zenith_deg < 0.0 { return None; }
-    if zenith_deg < 25.0 { Some(0) }
-    else if zenith_deg < 40.0 { Some(1) }
-    else if zenith_deg < 55.0 { Some(2) }
-    else if zenith_deg < 70.0 { Some(3) }
-    else if zenith_deg < 80.0 { Some(4) }
-    else { Some(5) }
+    if !zenith_deg.is_finite() || zenith_deg < 0.0 {
+        return None;
+    }
+    if zenith_deg < 25.0 {
+        Some(0)
+    } else if zenith_deg < 40.0 {
+        Some(1)
+    } else if zenith_deg < 55.0 {
+        Some(2)
+    } else if zenith_deg < 70.0 {
+        Some(3)
+    } else if zenith_deg < 80.0 {
+        Some(4)
+    } else {
+        Some(5)
+    }
 }
 
 /// Assign the precipitable-water bin index. `w == -1.0` → fallback bin 4
 /// (used when dew-point data is unavailable, matching pvlib-python).
 #[inline]
 pub(crate) fn w_bin(w: f64) -> Option<usize> {
-    if w == -1.0 { return Some(4); }
-    if !w.is_finite() || w < 0.0 { return None; }
-    if w < 1.0 { Some(0) }
-    else if w < 2.0 { Some(1) }
-    else if w < 3.0 { Some(2) }
-    else { Some(3) }
+    if w == -1.0 {
+        return Some(4);
+    }
+    if !w.is_finite() || w < 0.0 {
+        return None;
+    }
+    if w < 1.0 {
+        Some(0)
+    } else if w < 2.0 {
+        Some(1)
+    } else if w < 3.0 {
+        Some(2)
+    } else {
+        Some(3)
+    }
 }
 
 /// Assign the delta_kt' bin index. `delta_kt' == -1.0` → fallback bin 6
 /// (used when time-series context is not available, matching pvlib-python).
 #[inline]
 pub(crate) fn delta_kt_prime_bin(delta_kt_prime: f64) -> Option<usize> {
-    if delta_kt_prime == -1.0 { return Some(6); }
-    if !delta_kt_prime.is_finite() || delta_kt_prime < 0.0 { return None; }
-    if delta_kt_prime < 0.015 { Some(0) }
-    else if delta_kt_prime < 0.035 { Some(1) }
-    else if delta_kt_prime < 0.07 { Some(2) }
-    else if delta_kt_prime < 0.15 { Some(3) }
-    else if delta_kt_prime < 0.3 { Some(4) }
-    else if delta_kt_prime <= 1.0 { Some(5) }
-    else { None }
+    if delta_kt_prime == -1.0 {
+        return Some(6);
+    }
+    if !delta_kt_prime.is_finite() || delta_kt_prime < 0.0 {
+        return None;
+    }
+    if delta_kt_prime < 0.015 {
+        Some(0)
+    } else if delta_kt_prime < 0.035 {
+        Some(1)
+    } else if delta_kt_prime < 0.07 {
+        Some(2)
+    } else if delta_kt_prime < 0.15 {
+        Some(3)
+    } else if delta_kt_prime < 0.3 {
+        Some(4)
+    } else if delta_kt_prime <= 1.0 {
+        Some(5)
+    } else {
+        None
+    }
 }
 
 /// Look up the DIRINT multiplier for a given set of bin indices.

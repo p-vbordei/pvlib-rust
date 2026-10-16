@@ -4,7 +4,11 @@ use pvlib::transformer::*;
 fn test_simple_efficiency_no_losses() {
     // With zero losses, output should equal input
     let out = simple_efficiency(500.0, 1000.0, 0.0, 0.0);
-    assert!((out - 500.0).abs() < 1e-6, "Zero losses: output should equal input, got {}", out);
+    assert!(
+        (out - 500.0).abs() < 1e-6,
+        "Zero losses: output should equal input, got {}",
+        out
+    );
 }
 
 #[test]
@@ -36,6 +40,7 @@ fn test_simple_efficiency_no_load_loss_constant() {
     assert!(
         (loss_low - loss_high).abs() < 50.0,
         "No-load losses should be roughly constant: {} vs {}",
-        loss_low, loss_high
+        loss_low,
+        loss_high
     );
 }

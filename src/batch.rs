@@ -1,8 +1,8 @@
 #![allow(clippy::type_complexity)]
 
-use rayon::prelude::*;
+use crate::{atmosphere, clearsky, iam, inverter, irradiance, solarposition, temperature};
 use chrono::{Datelike, TimeZone};
-use crate::{solarposition, atmosphere, clearsky, irradiance, temperature, iam, inverter};
+use rayon::prelude::*;
 
 // ---------------------------------------------------------------------------
 // Solar Position Batch
@@ -14,7 +14,8 @@ pub fn solar_position_batch(
     location: &crate::location::Location,
     times: &[chrono::DateTime<chrono_tz::Tz>],
 ) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>), solarposition::SpaError> {
-    let results: Result<Vec<_>, _> = times.par_iter()
+    let results: Result<Vec<_>, _> = times
+        .par_iter()
         .map(|t| solarposition::get_solarposition(location, *t))
         .collect();
     let results = results?;
@@ -34,10 +35,15 @@ pub fn solar_position_batch_utc(
     altitude: f64,
     times: &[chrono::NaiveDateTime],
 ) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>), solarposition::SpaError> {
-    let location = crate::location::Location::new(latitude, longitude, chrono_tz::UTC, altitude, "UTC");
+    let location =
+        crate::location::Location::new(latitude, longitude, chrono_tz::UTC, altitude, "UTC");
     let datetimes: Vec<chrono::DateTime<chrono_tz::Tz>> = times
         .iter()
-        .map(|ndt| chrono::Utc.from_utc_datetime(ndt).with_timezone(&chrono_tz::UTC))
+        .map(|ndt| {
+            chrono::Utc
+                .from_utc_datetime(ndt)
+                .with_timezone(&chrono_tz::UTC)
+        })
         .collect();
     solar_position_batch(&location, &datetimes)
 }
@@ -48,14 +54,16 @@ pub fn solar_position_batch_utc(
 
 /// Batch relative airmass for an array of zenith angles.
 pub fn airmass_relative_batch(zenith: &[f64]) -> Vec<f64> {
-    zenith.par_iter()
+    zenith
+        .par_iter()
         .map(|z| atmosphere::get_relative_airmass(*z))
         .collect()
 }
 
 /// Batch absolute airmass.
 pub fn airmass_absolute_batch(airmass_relative: &[f64], pressure: f64) -> Vec<f64> {
-    airmass_relative.par_iter()
+    airmass_relative
+        .par_iter()
         .map(|am| atmosphere::get_absolute_airmass(*am, pressure))
         .collect()
 }
@@ -72,8 +80,13 @@ pub fn ineichen_batch(
     linke_turbidity: f64,
     altitude: f64,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
-    assert_eq!(zenith.len(), airmass_absolute.len(), "zenith and airmass_absolute must have the same length");
-    let results: Vec<_> = zenith.par_iter()
+    assert_eq!(
+        zenith.len(),
+        airmass_absolute.len(),
+        "zenith and airmass_absolute must have the same length"
+    );
+    let results: Vec<_> = zenith
+        .par_iter()
         .zip(airmass_absolute.par_iter())
         .map(|(z, am)| clearsky::ineichen(*z, *am, linke_turbidity, altitude, 1364.0))
         .collect();
@@ -91,8 +104,13 @@ pub fn bird_batch(
     aod500: f64,
     precipitable_water: f64,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
-    assert_eq!(zenith.len(), airmass_relative.len(), "zenith and airmass_relative must have the same length");
-    let results: Vec<_> = zenith.par_iter()
+    assert_eq!(
+        zenith.len(),
+        airmass_relative.len(),
+        "zenith and airmass_relative must have the same length"
+    );
+    let results: Vec<_> = zenith
+        .par_iter()
         .zip(airmass_relative.par_iter())
         .map(|(z, am)| clearsky::bird_default(*z, *am, aod380, aod500, precipitable_water))
         .collect();
@@ -113,8 +131,13 @@ pub fn aoi_batch(
     solar_zenith: &[f64],
     solar_azimuth: &[f64],
 ) -> Vec<f64> {
-    assert_eq!(solar_zenith.len(), solar_azimuth.len(), "solar_zenith and solar_azimuth must have the same length");
-    solar_zenith.par_iter()
+    assert_eq!(
+        solar_zenith.len(),
+        solar_azimuth.len(),
+        "solar_zenith and solar_azimuth must have the same length"
+    );
+    solar_zenith
+        .par_iter()
         .zip(solar_azimuth.par_iter())
         .map(|(z, a)| irradiance::aoi(surface_tilt, surface_azimuth, *z, *a))
         .collect()
@@ -122,7 +145,8 @@ pub fn aoi_batch(
 
 /// Batch extraterrestrial radiation.
 pub fn extra_radiation_batch(day_of_year: &[i32]) -> Vec<f64> {
-    day_of_year.par_iter()
+    day_of_year
+        .par_iter()
         .map(|d| irradiance::get_extra_radiation(*d))
         .collect()
 }
@@ -138,7 +162,8 @@ pub fn erbs_batch(
     assert_eq!(zenith.len(), n, "zenith len mismatch");
     assert_eq!(day_of_year.len(), n, "day_of_year len mismatch");
     assert_eq!(dni_extra.len(), n, "dni_extra len mismatch");
-    let results: Vec<_> = ghi.par_iter()
+    let results: Vec<_> = ghi
+        .par_iter()
         .zip(zenith.par_iter())
         .zip(day_of_year.par_iter())
         .zip(dni_extra.par_iter())
@@ -159,7 +184,8 @@ pub fn disc_batch(
     let n = ghi.len();
     assert_eq!(solar_zenith.len(), n, "solar_zenith len mismatch");
     assert_eq!(day_of_year.len(), n, "day_of_year len mismatch");
-    let results: Vec<_> = ghi.par_iter()
+    let results: Vec<_> = ghi
+        .par_iter()
         .zip(solar_zenith.par_iter())
         .zip(day_of_year.par_iter())
         .map(|((g, z), d)| irradiance::disc(*g, *z, *d, pressure))
@@ -190,13 +216,21 @@ pub fn perez_batch(
     assert_eq!(solar_azimuth.len(), n, "solar_azimuth len mismatch");
     assert_eq!(airmass.len(), n, "airmass len mismatch");
     assert_eq!(aoi_vals.len(), n, "aoi_vals len mismatch");
-    (0..n).into_par_iter()
-        .map(|i| irradiance::perez(
-            surface_tilt, surface_azimuth,
-            dhi[i], dni[i], dni_extra[i],
-            solar_zenith[i], solar_azimuth[i],
-            airmass[i], aoi_vals[i],
-        ))
+    (0..n)
+        .into_par_iter()
+        .map(|i| {
+            irradiance::perez(
+                surface_tilt,
+                surface_azimuth,
+                dhi[i],
+                dni[i],
+                dni_extra[i],
+                solar_zenith[i],
+                solar_azimuth[i],
+                airmass[i],
+                aoi_vals[i],
+            )
+        })
         .collect()
 }
 
@@ -222,15 +256,23 @@ pub fn total_irradiance_batch(
     assert_eq!(dhi.len(), n, "dhi len mismatch");
     assert_eq!(dni_extra.len(), n, "dni_extra len mismatch");
     assert_eq!(airmass.len(), n, "airmass len mismatch");
-    (0..n).into_par_iter()
-        .map(|i| irradiance::get_total_irradiance(
-            surface_tilt, surface_azimuth,
-            solar_zenith[i], solar_azimuth[i],
-            dni[i], ghi[i], dhi[i],
-            albedo, model,
-            Some(dni_extra[i]),
-            Some(airmass[i]),
-        ))
+    (0..n)
+        .into_par_iter()
+        .map(|i| {
+            irradiance::get_total_irradiance(
+                surface_tilt,
+                surface_azimuth,
+                solar_zenith[i],
+                solar_azimuth[i],
+                dni[i],
+                ghi[i],
+                dhi[i],
+                albedo,
+                model,
+                Some(dni_extra[i]),
+                Some(airmass[i]),
+            )
+        })
         .collect()
 }
 
@@ -244,15 +286,27 @@ pub fn sapm_cell_temperature_batch(
     poa_global: &[f64],
     temp_air: &[f64],
     wind_speed: &[f64],
-    a: f64, b: f64, delta_t: f64, irrad_ref: f64,
+    a: f64,
+    b: f64,
+    delta_t: f64,
+    irrad_ref: f64,
 ) -> (Vec<f64>, Vec<f64>) {
     let n = poa_global.len();
     assert_eq!(temp_air.len(), n, "temp_air len mismatch");
     assert_eq!(wind_speed.len(), n, "wind_speed len mismatch");
-    let results: Vec<_> = (0..n).into_par_iter()
-        .map(|i| temperature::sapm_cell_temperature(
-            poa_global[i], temp_air[i], wind_speed[i], a, b, delta_t, irrad_ref,
-        ))
+    let results: Vec<_> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            temperature::sapm_cell_temperature(
+                poa_global[i],
+                temp_air[i],
+                wind_speed[i],
+                a,
+                b,
+                delta_t,
+                irrad_ref,
+            )
+        })
         .collect();
     let cell = results.iter().map(|r| r.0).collect();
     let module = results.iter().map(|r| r.1).collect();
@@ -270,7 +324,8 @@ pub fn faiman_batch(
     let n = poa_global.len();
     assert_eq!(temp_air.len(), n, "temp_air len mismatch");
     assert_eq!(wind_speed.len(), n, "wind_speed len mismatch");
-    (0..n).into_par_iter()
+    (0..n)
+        .into_par_iter()
         .map(|i| temperature::faiman(poa_global[i], temp_air[i], wind_speed[i], u0, u1))
         .collect()
 }
@@ -281,16 +336,12 @@ pub fn faiman_batch(
 
 /// Batch Physical IAM.
 pub fn iam_physical_batch(aoi: &[f64], n: f64, k: f64, l: f64) -> Vec<f64> {
-    aoi.par_iter()
-        .map(|a| iam::physical(*a, n, k, l))
-        .collect()
+    aoi.par_iter().map(|a| iam::physical(*a, n, k, l)).collect()
 }
 
 /// Batch ASHRAE IAM.
 pub fn iam_ashrae_batch(aoi: &[f64], b0: f64) -> Vec<f64> {
-    aoi.par_iter()
-        .map(|a| iam::ashrae(*a, b0))
-        .collect()
+    aoi.par_iter().map(|a| iam::ashrae(*a, b0)).collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -298,12 +349,7 @@ pub fn iam_ashrae_batch(aoi: &[f64], b0: f64) -> Vec<f64> {
 // ---------------------------------------------------------------------------
 
 /// Batch PVWatts AC power.
-pub fn pvwatts_ac_batch(
-    pdc: &[f64],
-    pdc0: f64,
-    eta_inv_nom: f64,
-    eta_inv_ref: f64,
-) -> Vec<f64> {
+pub fn pvwatts_ac_batch(pdc: &[f64], pdc0: f64, eta_inv_nom: f64, eta_inv_ref: f64) -> Vec<f64> {
     pdc.par_iter()
         .map(|p| inverter::pvwatts_ac(*p, pdc0, eta_inv_nom, eta_inv_ref))
         .collect()
@@ -406,7 +452,9 @@ impl SimulationSeries {
     #[must_use]
     pub fn capacity_factor(&self, system_capacity_w: f64) -> f64 {
         let hours = self.ac_power.len() as f64;
-        if hours == 0.0 || system_capacity_w == 0.0 { return 0.0; }
+        if hours == 0.0 || system_capacity_w == 0.0 {
+            return 0.0;
+        }
         self.total_energy_wh() / (system_capacity_w * hours)
     }
 
@@ -530,7 +578,10 @@ impl BatchModelChain {
     /// Run the full simulation on a weather time series.
     ///
     /// Uses rayon for automatic parallelization across CPU cores.
-    pub fn run(&self, weather: &WeatherSeries) -> Result<SimulationSeries, solarposition::SpaError> {
+    pub fn run(
+        &self,
+        weather: &WeatherSeries,
+    ) -> Result<SimulationSeries, solarposition::SpaError> {
         let n = weather.times.len();
         assert_eq!(weather.ghi.len(), n);
         assert_eq!(weather.dni.len(), n, "dni len mismatch");
@@ -552,93 +603,114 @@ impl BatchModelChain {
         };
 
         // Run entire pipeline in parallel for each timestep
-        let results: Result<Vec<_>, _> = (0..n).into_par_iter().map(|i| {
-            // 1. Solar position
-            let solpos = solarposition::get_solarposition(&self.location, weather.times[i])?;
+        let results: Result<Vec<_>, _> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                // 1. Solar position
+                let solpos = solarposition::get_solarposition(&self.location, weather.times[i])?;
 
-            // 2. Airmass
-            let am_rel = atmosphere::get_relative_airmass(solpos.zenith);
-            let am_abs = if am_rel.is_nan() || am_rel <= 0.0 {
-                0.0
-            } else {
-                atmosphere::get_absolute_airmass(am_rel, pressure)
-            };
+                // 2. Airmass
+                let am_rel = atmosphere::get_relative_airmass(solpos.zenith);
+                let am_abs = if am_rel.is_nan() || am_rel <= 0.0 {
+                    0.0
+                } else {
+                    atmosphere::get_absolute_airmass(am_rel, pressure)
+                };
 
-            // 3. AOI
-            let aoi_val = irradiance::aoi(
-                self.surface_tilt, self.surface_azimuth,
-                solpos.zenith, solpos.azimuth,
-            );
+                // 3. AOI
+                let aoi_val = irradiance::aoi(
+                    self.surface_tilt,
+                    self.surface_azimuth,
+                    solpos.zenith,
+                    solpos.azimuth,
+                );
 
-            // 4. Extraterrestrial irradiance. `ordinal()` is O(1) and
-            // allocation-free; the prior `format("%j").parse()` approach
-            // allocated two `String`s per timestep — a measurable cost on
-            // an 8760-row TMY run.
-            let doy = weather.times[i].ordinal() as i32;
-            let dni_extra = irradiance::get_extra_radiation(doy);
+                // 4. Extraterrestrial irradiance. `ordinal()` is O(1) and
+                // allocation-free; the prior `format("%j").parse()` approach
+                // allocated two `String`s per timestep — a measurable cost on
+                // an 8760-row TMY run.
+                let doy = weather.times[i].ordinal() as i32;
+                let dni_extra = irradiance::get_extra_radiation(doy);
 
-            // 4b. Auto-decompose GHI → DNI/DHI if enabled and needed
-            let (dni_i, dhi_i) = if self.auto_decomposition
-                && (weather.dni[i].abs() < 1.0 || weather.dni[i].is_nan())
-                && (weather.dhi[i].abs() < 1.0 || weather.dhi[i].is_nan())
-                && weather.ghi[i] > 0.0
-            {
-                let dni_extra_val = dni_extra;
-                irradiance::erbs(weather.ghi[i], solpos.zenith, doy as u32, dni_extra_val)
-            } else {
-                (weather.dni[i], weather.dhi[i])
-            };
+                // 4b. Auto-decompose GHI → DNI/DHI if enabled and needed
+                let (dni_i, dhi_i) = if self.auto_decomposition
+                    && (weather.dni[i].abs() < 1.0 || weather.dni[i].is_nan())
+                    && (weather.dhi[i].abs() < 1.0 || weather.dhi[i].is_nan())
+                    && weather.ghi[i] > 0.0
+                {
+                    let dni_extra_val = dni_extra;
+                    irradiance::erbs(weather.ghi[i], solpos.zenith, doy as u32, dni_extra_val)
+                } else {
+                    (weather.dni[i], weather.dhi[i])
+                };
 
-            // 5. Transposition
-            let poa = irradiance::get_total_irradiance(
-                self.surface_tilt, self.surface_azimuth,
-                solpos.zenith, solpos.azimuth,
-                dni_i, weather.ghi[i], dhi_i,
-                weather.albedo.as_ref().map_or(albedo_default, |a| a[i]),
-                self.transposition_model,
-                Some(dni_extra),
-                if am_rel.is_nan() { None } else { Some(am_rel) },
-            );
+                // 5. Transposition
+                let poa = irradiance::get_total_irradiance(
+                    self.surface_tilt,
+                    self.surface_azimuth,
+                    solpos.zenith,
+                    solpos.azimuth,
+                    dni_i,
+                    weather.ghi[i],
+                    dhi_i,
+                    weather.albedo.as_ref().map_or(albedo_default, |a| a[i]),
+                    self.transposition_model,
+                    Some(dni_extra),
+                    if am_rel.is_nan() { None } else { Some(am_rel) },
+                );
 
-            // 6. IAM
-            // Note: Uses Physical IAM model (Fresnel/Snell's law) matching the PVWatts configuration.
-            let iam_val = iam::physical(aoi_val, 1.526, 4.0, 0.002);
+                // 6. IAM
+                // Note: Uses Physical IAM model (Fresnel/Snell's law) matching the PVWatts configuration.
+                let iam_val = iam::physical(aoi_val, 1.526, 4.0, 0.002);
 
-            // 7. Effective irradiance (spectral modifier = 1.0 for NoLoss)
-            let spectral_modifier = 1.0;
-            let eff_irrad = ((poa.poa_direct * iam_val + poa.poa_diffuse) * spectral_modifier).max(0.0);
+                // 7. Effective irradiance (spectral modifier = 1.0 for NoLoss)
+                let spectral_modifier = 1.0;
+                let eff_irrad =
+                    ((poa.poa_direct * iam_val + poa.poa_diffuse) * spectral_modifier).max(0.0);
 
-            // 8. Cell temperature
-            // Note: Uses PVWatts temperature model (T_cell = T_air + POA*(NOCT-20)/800).
-            let t_cell = weather.temp_air[i] + poa.poa_global * (45.0 - 20.0) / 800.0;
+                // 8. Cell temperature
+                // Note: Uses PVWatts temperature model (T_cell = T_air + POA*(NOCT-20)/800).
+                let t_cell = weather.temp_air[i] + poa.poa_global * (45.0 - 20.0) / 800.0;
 
-            // 9. DC power
-            let pdc = self.system_capacity_dc * (eff_irrad / 1000.0)
-                * (1.0 + self.gamma_pdc * (t_cell - 25.0));
-            let pdc = pdc.max(0.0);
+                // 9. DC power
+                let pdc = self.system_capacity_dc
+                    * (eff_irrad / 1000.0)
+                    * (1.0 + self.gamma_pdc * (t_cell - 25.0));
+                let pdc = pdc.max(0.0);
 
-            // 9b. System losses
-            let pdc = pdc * (1.0 - self.system_losses);
+                // 9b. System losses
+                let pdc = pdc * (1.0 - self.system_losses);
 
-            // 9c. Bifacial rear-side gain (applied at DC level before inverter)
-            let pdc = if self.bifaciality_factor > 0.0 && poa.poa_global > 10.0 {
-                let rear_gain = (self.bifaciality_factor * self.bifacial_ground_albedo
-                    * weather.ghi[i] / poa.poa_global).min(0.25);
-                pdc * (1.0 + rear_gain)
-            } else {
-                pdc
-            };
+                // 9c. Bifacial rear-side gain (applied at DC level before inverter)
+                let pdc = if self.bifaciality_factor > 0.0 && poa.poa_global > 10.0 {
+                    let rear_gain =
+                        (self.bifaciality_factor * self.bifacial_ground_albedo * weather.ghi[i]
+                            / poa.poa_global)
+                            .min(0.25);
+                    pdc * (1.0 + rear_gain)
+                } else {
+                    pdc
+                };
 
-            // 10. AC power
-            let pac = inverter::pvwatts_ac(
-                pdc, inverter_pdc0,
-                self.inverter_efficiency, 0.9637,
-            );
+                // 10. AC power
+                let pac =
+                    inverter::pvwatts_ac(pdc, inverter_pdc0, self.inverter_efficiency, 0.9637);
 
-            Ok((solpos.zenith, solpos.azimuth, am_abs, aoi_val,
-                poa.poa_global, poa.poa_direct, poa.poa_diffuse,
-                t_cell, eff_irrad, pdc, pac))
-        }).collect();
+                Ok((
+                    solpos.zenith,
+                    solpos.azimuth,
+                    am_abs,
+                    aoi_val,
+                    poa.poa_global,
+                    poa.poa_direct,
+                    poa.poa_diffuse,
+                    t_cell,
+                    eff_irrad,
+                    pdc,
+                    pac,
+                ))
+            })
+            .collect();
 
         let results = results?;
 

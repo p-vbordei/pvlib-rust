@@ -1,5 +1,5 @@
 /// Calculate the relative airmass using the Kasten-Young 1989 model.
-/// 
+///
 /// # Arguments
 /// * `zenith` - True or apparent zenith angle in degrees.
 #[inline]
@@ -8,13 +8,13 @@ pub fn get_relative_airmass(zenith: f64) -> f64 {
     // However, the formula can technically handle slightly above 90 before going negative.
     let z = zenith;
     let cos_z = z.to_radians().cos();
-    
+
     // Kasten-Young 1989 formula
     let c = 96.07995 - z;
     if c <= 0.0 {
         return f64::NAN; // Airmass is undefined for zenith angles >= 96.07995
     }
-    
+
     let term = 0.50572 * c.powf(-1.6364);
     let am_rel = 1.0 / (cos_z + term);
 
@@ -66,12 +66,10 @@ pub fn gueymard94_pw(temp_air: f64, relative_humidity: f64) -> f64 {
     let rh = relative_humidity;
     let theta = t / 273.15;
 
-    let hv = 0.4976 + 1.5265 * theta
-        + (13.6897 * theta - 14.9188 * theta.powi(3)).exp();
+    let hv = 0.4976 + 1.5265 * theta + (13.6897 * theta - 14.9188 * theta.powi(3)).exp();
 
-    let es = (22.330 - 49.140 * (100.0 / t) - 10.922 * (100.0 / t).powi(2)
-        - 0.39015 * t / 100.0)
-        .exp();
+    let es =
+        (22.330 - 49.140 * (100.0 / t) - 10.922 * (100.0 / t).powi(2) - 0.39015 * t / 100.0).exp();
 
     let rho_v = 216.7 * rh / (100.0 * t) * es;
 
@@ -144,9 +142,7 @@ pub fn kasten96_lt(airmass: f64, precipitable_water: f64, aod_bb: f64) -> f64 {
     let delta_w = 0.112 * airmass.powf(-0.55) * precipitable_water.powf(0.34);
     let delta_a = aod_bb;
 
-    -(9.4 + 0.9 * airmass)
-        * (-airmass * (delta_cda + delta_w + delta_a)).exp().ln()
-        / airmass
+    -(9.4 + 0.9 * airmass) * (-airmass * (delta_cda + delta_w + delta_a)).exp().ln() / airmass
 }
 
 /// Get AOD at specified wavelength using Angstrom turbidity model.
@@ -190,7 +186,12 @@ pub fn angstrom_alpha(aod1: f64, lambda1: f64, aod2: f64, lambda2: f64) -> f64 {
 /// # Returns
 /// Wind speed at desired height in m/s.
 #[inline]
-pub fn windspeed_powerlaw(wind_speed: f64, height_ref: f64, height_desired: f64, alpha: f64) -> f64 {
+pub fn windspeed_powerlaw(
+    wind_speed: f64,
+    height_ref: f64,
+    height_desired: f64,
+    alpha: f64,
+) -> f64 {
     if wind_speed < 0.0 || height_ref <= 0.0 || height_desired <= 0.0 {
         return f64::NAN;
     }
@@ -200,10 +201,10 @@ pub fn windspeed_powerlaw(wind_speed: f64, height_ref: f64, height_desired: f64,
 /// Atmospheric refraction calculation.
 ///
 /// Converts true elevation to apparent elevation.
-/// 
+///
 /// # Arguments
 /// * `true_elevation` - True solar elevation in degrees.
-/// 
+///
 /// # Returns
 /// Atmospheric refraction in degrees to add to true elevation.
 #[inline]
@@ -217,7 +218,6 @@ pub fn get_refraction(true_elevation: f64) -> f64 {
         r / 60.0 // Convert arcminutes to degrees
     } else {
         // Below horizon
-        34.5 / 60.0 
+        34.5 / 60.0
     }
 }
-

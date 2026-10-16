@@ -1,11 +1,11 @@
 /// ASHRAE Incidence Angle Modifier (IAM) model.
-/// 
+///
 /// `iam = 1 - b0 * (1/cos(aoi) - 1)`
-/// 
+///
 /// # Arguments
 /// * `aoi` - Angle of incidence in degrees.
 /// * `b0` - IAM parameter (typically 0.05).
-/// 
+///
 /// # Returns
 /// IAM multiplier (dimensionless).
 #[inline]
@@ -18,17 +18,17 @@ pub fn ashrae(aoi: f64, b0: f64) -> f64 {
     if cos_aoi <= 0.0 {
         return 0.0;
     }
-    
+
     let iam = 1.0 - b0 * (1.0 / cos_aoi - 1.0);
     iam.clamp(0.0, 1.0)
 }
 
 /// Martin and Ruiz Incidence Angle Modifier (IAM) model.
-/// 
+///
 /// # Arguments
 /// * `aoi` - Angle of incidence in degrees.
 /// * `a_r` - Angular losses coefficient.
-/// 
+///
 /// # Returns
 /// IAM multiplier (dimensionless).
 #[inline]
@@ -200,20 +200,18 @@ pub fn martin_ruiz_diffuse(surface_tilt: f64, a_r: f64) -> (f64, f64) {
 }
 
 /// Sandia Array Performance Model (SAPM) Incidence Angle Modifier.
-/// 
+///
 /// # References
 /// King, D. et al., 2004, "Sandia Photovoltaic Array Performance Model".
 #[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn sapm(aoi: f64, b0: f64, b1: f64, b2: f64, b3: f64, b4: f64, b5: f64) -> f64 {
-    if !(0.0..=90.0).contains(&aoi) { return 0.0; }
-    
-    let iam = b0 
-            + b1 * aoi 
-            + b2 * aoi.powi(2) 
-            + b3 * aoi.powi(3) 
-            + b4 * aoi.powi(4) 
-            + b5 * aoi.powi(5);
-            
+    if !(0.0..=90.0).contains(&aoi) {
+        return 0.0;
+    }
+
+    let iam =
+        b0 + b1 * aoi + b2 * aoi.powi(2) + b3 * aoi.powi(3) + b4 * aoi.powi(4) + b5 * aoi.powi(5);
+
     iam.clamp(0.0, 1.0)
 }

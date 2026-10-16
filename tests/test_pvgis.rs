@@ -1,4 +1,4 @@
-use pvlib::iotools::{parse_pvgis_tmy_json, parse_pvgis_hourly_json, parse_pvgis_horizon_json};
+use pvlib::iotools::{parse_pvgis_horizon_json, parse_pvgis_hourly_json, parse_pvgis_tmy_json};
 
 /// Sample PVGIS TMY JSON response (minimal but structurally correct).
 fn sample_tmy_json() -> &'static str {

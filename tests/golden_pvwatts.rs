@@ -43,8 +43,13 @@ fn pvwatts_dc_and_ac_match_pvlib() {
             .position(|h| h == name)
             .unwrap_or_else(|| panic!("pvwatts.csv.gz missing column {name}"))
     };
-    let (i_g, i_tc, i_pdc0, i_gamma, i_pdc) =
-        (idx("g_poa"), idx("temp_cell"), idx("pdc0_dc"), idx("gamma_pdc"), idx("pdc"));
+    let (i_g, i_tc, i_pdc0, i_gamma, i_pdc) = (
+        idx("g_poa"),
+        idx("temp_cell"),
+        idx("pdc0_dc"),
+        idx("gamma_pdc"),
+        idx("pdc"),
+    );
     // Discover per-ratio (pdc0_ac_r<tag>, pac_r<tag>) column pairs from the
     // header rather than hardcoding the ratio tags.
     let ratio_cols: Vec<(String, usize, usize)> = headers
@@ -52,11 +57,21 @@ fn pvwatts_dc_and_ac_match_pvlib() {
         .filter_map(|h| h.strip_prefix("pdc0_ac_r"))
         .map(|tag| {
             let tag = tag.to_string();
-            (tag.clone(), idx(&format!("pdc0_ac_r{tag}")), idx(&format!("pac_r{tag}")))
+            (
+                tag.clone(),
+                idx(&format!("pdc0_ac_r{tag}")),
+                idx(&format!("pac_r{tag}")),
+            )
         })
         .collect();
-    assert!(!ratio_cols.is_empty(), "no pdc0_ac_r* / pac_r* column pairs found in pvwatts.csv.gz header");
-    eprintln!("  discovered dc/ac ratio tags: {:?}", ratio_cols.iter().map(|(t, ..)| t).collect::<Vec<_>>());
+    assert!(
+        !ratio_cols.is_empty(),
+        "no pdc0_ac_r* / pac_r* column pairs found in pvwatts.csv.gz header"
+    );
+    eprintln!(
+        "  discovered dc/ac ratio tags: {:?}",
+        ratio_cols.iter().map(|(t, ..)| t).collect::<Vec<_>>()
+    );
 
     let mut dc_stats = golden::TrackerSet::new();
     let mut ac_stats = golden::TrackerSet::new();
@@ -72,7 +87,10 @@ fn pvwatts_dc_and_ac_match_pvlib() {
         let pdc_want: f64 = rec[i_pdc].parse().unwrap();
 
         let array = Array {
-            mount: Box::new(FixedMount { surface_tilt: 0.0, surface_azimuth: 0.0 }),
+            mount: Box::new(FixedMount {
+                surface_tilt: 0.0,
+                surface_azimuth: 0.0,
+            }),
             nameplate_dc: pdc0_dc,
             gamma_pdc,
             modules_per_string: 1,
@@ -134,5 +152,8 @@ fn pvwatts_dc_and_ac_match_pvlib() {
             eprintln!("    {e}");
         }
     }
-    assert_eq!(n_bad, 0, "{n_bad} (row, column) pairs exceeded the 0.1% power tolerance -- see report above");
+    assert_eq!(
+        n_bad, 0,
+        "{n_bad} (row, column) pairs exceeded the 0.1% power tolerance -- see report above"
+    );
 }

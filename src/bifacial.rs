@@ -173,15 +173,7 @@ pub fn get_irradiance_infinite_sheds(
     // form without solar zenith/azimuth information cannot attribute a
     // ground-beam fraction to the rear, so use an isotropic fallback:
     // F_gnd,beam = 1 − GCR·cos(β) clamped to [0, 1].
-    rear_irradiance_sheds(
-        surface_tilt,
-        surface_azimuth,
-        None,
-        gcr,
-        ghi,
-        dhi,
-        albedo,
-    )
+    rear_irradiance_sheds(surface_tilt, surface_azimuth, None, gcr, ghi, dhi, albedo)
 }
 
 /// Full rear-irradiance composition when solar position is available.
@@ -249,14 +241,20 @@ mod tests {
         // Tilt 0 (flat on the ground looking up) with negligible adjacent row
         // shading (GCR small) should see roughly the full sky.
         let vf = vf_row_sky_2d_integ(0.0, 0.01, 0.0, 1.0);
-        assert!(vf > 0.9, "flat row with tiny GCR should see most of sky, got {vf}");
+        assert!(
+            vf > 0.9,
+            "flat row with tiny GCR should see most of sky, got {vf}"
+        );
     }
 
     #[test]
     fn vertical_row_sees_half_sky_at_most() {
         // A 90° tilt row can see at most half the sky (dome split by the row).
         let vf = vf_row_sky_2d_integ(90.0, 0.5, 0.0, 1.0);
-        assert!(vf <= 0.5 + 1e-9, "vertical row vf to sky {vf} should be ≤ 0.5");
+        assert!(
+            vf <= 0.5 + 1e-9,
+            "vertical row vf to sky {vf} should be ≤ 0.5"
+        );
     }
 
     #[test]
@@ -290,15 +288,11 @@ mod tests {
 
     #[test]
     fn rear_irradiance_positive() {
-        let rear = rear_irradiance_sheds(
-            30.0,
-            180.0,
-            Some((30.0, 180.0)),
-            0.4,
-            1000.0,
-            150.0,
-            0.25,
+        let rear =
+            rear_irradiance_sheds(30.0, 180.0, Some((30.0, 180.0)), 0.4, 1000.0, 150.0, 0.25);
+        assert!(
+            rear > 0.0 && rear < 500.0,
+            "implausible rear irradiance {rear}"
         );
-        assert!(rear > 0.0 && rear < 500.0, "implausible rear irradiance {rear}");
     }
 }

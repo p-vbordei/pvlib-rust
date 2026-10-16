@@ -1,18 +1,34 @@
-use std::f64::consts::PI;
 use crate::atmosphere;
+use std::f64::consts::PI;
 
 /// Perez et al. (1990) Table 1 — brightness coefficients
 /// Columns: f11, f12, f13, f21, f22, f23
 /// Rows: 8 sky clearness bins (epsilon ranges)
 const PEREZ_COEFFICIENTS: [[f64; 6]; 8] = [
-    [-0.0083117, 0.5877277, -0.0620636, -0.0596012, 0.0721249, -0.0220216],
-    [0.1299457, 0.6825954, -0.1513752, -0.0189325, 0.0659650, -0.0288748],
-    [0.3296958, 0.4868735, -0.2210958, 0.0554140, -0.0639588, -0.0260542],
-    [0.5682053, 0.1874990, -0.2951290, 0.1088631, -0.1519229, -0.0139754],
-    [0.8730280, -0.3920403, -0.3616149, 0.2255647, -0.4620442,  0.0012448],
-    [1.1326077, -1.2367284, -0.4118494, 0.2877813, -0.8230357,  0.0558225],
-    [1.0601591, -1.5999137, -0.3589221, 0.2642124, -1.1272340,  0.1310694],
-    [0.6777470, -0.3272588, -0.2504286, 0.1561313, -1.3765031,  0.2506212],
+    [
+        -0.0083117, 0.5877277, -0.0620636, -0.0596012, 0.0721249, -0.0220216,
+    ],
+    [
+        0.1299457, 0.6825954, -0.1513752, -0.0189325, 0.0659650, -0.0288748,
+    ],
+    [
+        0.3296958, 0.4868735, -0.2210958, 0.0554140, -0.0639588, -0.0260542,
+    ],
+    [
+        0.5682053, 0.1874990, -0.2951290, 0.1088631, -0.1519229, -0.0139754,
+    ],
+    [
+        0.8730280, -0.3920403, -0.3616149, 0.2255647, -0.4620442, 0.0012448,
+    ],
+    [
+        1.1326077, -1.2367284, -0.4118494, 0.2877813, -0.8230357, 0.0558225,
+    ],
+    [
+        1.0601591, -1.5999137, -0.3589221, 0.2642124, -1.1272340, 0.1310694,
+    ],
+    [
+        0.6777470, -0.3272588, -0.2504286, 0.1561313, -1.3765031, 0.2506212,
+    ],
 ];
 
 /// Calculate the angle of incidence (AOI) of the solar vector on a surface.
@@ -25,7 +41,7 @@ pub fn aoi(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64, solar_azi
 
     let cos_aoi = zen_rad.cos() * tilt_rad.cos()
         + zen_rad.sin() * tilt_rad.sin() * (sol_az_rad - surf_az_rad).cos();
-    
+
     let cos_aoi = cos_aoi.clamp(-1.0, 1.0);
     cos_aoi.acos().to_degrees()
 }
@@ -49,20 +65,31 @@ pub fn isotropic(surface_tilt: f64, dhi: f64) -> f64 {
 }
 
 /// Hay-Davies diffuse sky model.
-/// 
+///
 /// # References
-/// Hay, J.E. and Davies, J.A., 1980, "Calculations of the solar radiation incident on an inclined surface", 
+/// Hay, J.E. and Davies, J.A., 1980, "Calculations of the solar radiation incident on an inclined surface",
 /// in Proceedings of the First Canadian Solar Radiation Data Workshop.
 #[allow(clippy::too_many_arguments)]
 #[inline]
-pub fn haydavies(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, _solar_azimuth: f64, aoi_in: f64) -> f64 {
+pub fn haydavies(
+    surface_tilt: f64,
+    _surface_azimuth: f64,
+    dhi: f64,
+    dni: f64,
+    dni_extra: f64,
+    solar_zenith: f64,
+    _solar_azimuth: f64,
+    aoi_in: f64,
+) -> f64 {
     let mut a = 0.0;
     if dni_extra > 0.0 {
         a = dni / dni_extra;
     }
     let a = a.clamp(0.0, 1.0);
     let mut cos_z = solar_zenith.to_radians().cos();
-    if cos_z < 85.0_f64.to_radians().cos() { cos_z = 85.0_f64.to_radians().cos(); }
+    if cos_z < 85.0_f64.to_radians().cos() {
+        cos_z = 85.0_f64.to_radians().cos();
+    }
 
     let cos_aoi = aoi_in.to_radians().cos().max(0.0);
     let r_b = cos_aoi / cos_z;
@@ -71,60 +98,89 @@ pub fn haydavies(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, d
 }
 
 /// Klucher diffuse sky model.
-/// 
+///
 /// # References
-/// Klucher, T.M., 1979, "Evaluation of models to predict insolation on tilted surfaces," 
+/// Klucher, T.M., 1979, "Evaluation of models to predict insolation on tilted surfaces,"
 /// Solar Energy, 23(2), pp. 111-114.
 #[inline]
-pub fn klucher(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, ghi: f64, solar_zenith: f64, _solar_azimuth: f64, aoi_in: f64) -> f64 {
+pub fn klucher(
+    surface_tilt: f64,
+    _surface_azimuth: f64,
+    dhi: f64,
+    ghi: f64,
+    solar_zenith: f64,
+    _solar_azimuth: f64,
+    aoi_in: f64,
+) -> f64 {
     let mut f = 0.0;
     if ghi > 0.0 {
         let frac = dhi / ghi;
         f = 1.0 - frac * frac;
     }
     let f = f.clamp(0.0, 1.0);
-    
+
     let _cos_z = solar_zenith.to_radians().cos();
     let cos_aoi = aoi_in.to_radians().cos().max(0.0);
     let tilt_rad = surface_tilt.to_radians();
-    
+
     let term1 = 1.0 + f * (tilt_rad / 2.0).sin().powi(3);
     let term2 = 1.0 + f * cos_aoi.powi(2) * (solar_zenith.to_radians().sin()).powi(3);
-    
+
     dhi * ((1.0 + tilt_rad.cos()) / 2.0) * term1 * term2
 }
 
 /// Perez diffuse sky model.
-/// 
+///
 /// # References
-/// Perez, R., Ineichen, P., Seals, R., Michalsky, J. and Stewart, R., 1990, 
-/// "Modeling daylight availability and irradiance components from direct and global irradiance," 
+/// Perez, R., Ineichen, P., Seals, R., Michalsky, J. and Stewart, R., 1990,
+/// "Modeling daylight availability and irradiance components from direct and global irradiance,"
 /// Solar Energy, 44(5), pp. 271-289.
 #[allow(clippy::too_many_arguments)]
 #[inline]
-pub fn perez(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, _solar_azimuth: f64, airmass: f64, aoi_in: f64) -> f64 {
+pub fn perez(
+    surface_tilt: f64,
+    _surface_azimuth: f64,
+    dhi: f64,
+    dni: f64,
+    dni_extra: f64,
+    solar_zenith: f64,
+    _solar_azimuth: f64,
+    airmass: f64,
+    aoi_in: f64,
+) -> f64 {
     let mut cos_z = solar_zenith.to_radians().cos();
-    if cos_z < 85.0_f64.to_radians().cos() { cos_z = 85.0_f64.to_radians().cos(); }
+    if cos_z < 85.0_f64.to_radians().cos() {
+        cos_z = 85.0_f64.to_radians().cos();
+    }
     let cos_aoi = aoi_in.to_radians().cos().max(0.0); // beam parallel to surface if >90
 
     // sky clearness epsilon
     let _a = (dni_extra * 1e-6).max(1.0); // essentially 1.0 for bounds, simplified for delta
     let delta = dhi * airmass / dni_extra;
-    
+
     let mut epsilon = 1.0;
     if dhi > 0.0 {
-        epsilon = ((dhi + dni) / dhi + 1.041 * solar_zenith.to_radians().powi(3)) / 
-                  (1.0 + 1.041 * solar_zenith.to_radians().powi(3));
+        epsilon = ((dhi + dni) / dhi + 1.041 * solar_zenith.to_radians().powi(3))
+            / (1.0 + 1.041 * solar_zenith.to_radians().powi(3));
     }
 
-    let bin = if epsilon < 1.065 { 0 }
-    else if epsilon < 1.230 { 1 }
-    else if epsilon < 1.500 { 2 }
-    else if epsilon < 1.950 { 3 }
-    else if epsilon < 2.800 { 4 }
-    else if epsilon < 4.500 { 5 }
-    else if epsilon < 6.200 { 6 }
-    else { 7 };
+    let bin = if epsilon < 1.065 {
+        0
+    } else if epsilon < 1.230 {
+        1
+    } else if epsilon < 1.500 {
+        2
+    } else if epsilon < 1.950 {
+        3
+    } else if epsilon < 2.800 {
+        4
+    } else if epsilon < 4.500 {
+        5
+    } else if epsilon < 6.200 {
+        6
+    } else {
+        7
+    };
 
     let coeffs = PEREZ_COEFFICIENTS[bin];
     let mut f1 = coeffs[0] + coeffs[1] * delta + coeffs[2] * solar_zenith.to_radians();
@@ -134,21 +190,25 @@ pub fn perez(surface_tilt: f64, _surface_azimuth: f64, dhi: f64, dni: f64, dni_e
     let a_perez = cos_aoi;
     let b_perez = cos_z;
 
-    dhi * ((1.0 - f1) * (1.0 + surface_tilt.to_radians().cos()) / 2.0 + f1 * a_perez / b_perez + f2 * surface_tilt.to_radians().sin())
+    dhi * ((1.0 - f1) * (1.0 + surface_tilt.to_radians().cos()) / 2.0
+        + f1 * a_perez / b_perez
+        + f2 * surface_tilt.to_radians().sin())
 }
 
 /// Erbs decomposition model.
-/// 
+///
 /// # References
-/// Erbs, D.G., Klein, S.A. and Duffie, J.A., 1982, 
-/// "Estimation of the diffuse radiation fraction for hourly, daily and monthly-average global radiation," 
+/// Erbs, D.G., Klein, S.A. and Duffie, J.A., 1982,
+/// "Estimation of the diffuse radiation fraction for hourly, daily and monthly-average global radiation,"
 /// Solar Energy, 28(4), pp. 293-302.
 #[inline]
 pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f64) {
     if !ghi.is_finite() || !zenith.is_finite() || !dni_extra.is_finite() {
         return (0.0, 0.0);
     }
-    if ghi <= 0.0 || zenith >= 87.0 { return (0.0, ghi); }
+    if ghi <= 0.0 || zenith >= 87.0 {
+        return (0.0, ghi);
+    }
     // pvlib-python's `erbs()` floors cos(zenith) at `min_cos_zenith=0.065`
     // (acos(0.065) ~= 86.27 deg), not cos(85 deg)=0.08716 -- the latter was
     // this port's own defect, found via golden-fixture parity testing
@@ -169,24 +229,28 @@ pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f
 
     let dhi = ghi * kd.clamp(0.0, 1.0);
     let dni = (ghi - dhi) / cos_z;
-    if dni < 0.0 { return (0.0, ghi); }
+    if dni < 0.0 {
+        return (0.0, ghi);
+    }
 
     (dni, dhi)
 }
 
 /// Boland (2008) decomposition model.
 /// Logistic regression model for continuous diffuse fraction estimation.
-/// 
+///
 /// # References
-/// Boland, J., Scott, L. and Luther, M., 2008. 
+/// Boland, J., Scott, L. and Luther, M., 2008.
 /// "Modelling the diffuse fraction of global solar radiation on a horizontal surface."
 #[inline]
 pub fn boland(ghi: f64, zenith: f64, dni_extra: f64) -> (f64, f64) {
-    if ghi <= 0.0 || zenith >= 90.0 { return (0.0, 0.0); }
+    if ghi <= 0.0 || zenith >= 90.0 {
+        return (0.0, 0.0);
+    }
     let cos_z = zenith.to_radians().cos().max(85.0_f64.to_radians().cos());
-    
+
     let kt = ghi / (dni_extra * cos_z);
-    
+
     // Boland logistic equation: DF = 1 / (1 + exp(a*(kt - b)))
     // Default coefficients: a=8.645, b=0.613 (15-minute data, Boland et al.)
     let a_coeff = 8.645;
@@ -194,7 +258,7 @@ pub fn boland(ghi: f64, zenith: f64, dni_extra: f64) -> (f64, f64) {
     let kd = 1.0 / (1.0 + (a_coeff * (kt - b_coeff)).exp());
     let dhi = ghi * kd.clamp(0.0, 1.0);
     let dni = ((ghi - dhi) / cos_z).max(0.0);
-    
+
     (dni, dhi)
 }
 
@@ -251,8 +315,7 @@ pub fn dirint(
     temp_dew_c: Option<f64>,
 ) -> f64 {
     let disc_out = disc(ghi, solar_zenith, day_of_year, Some(pressure_pa));
-    let kt_prime =
-        clearness_index_zenith_independent(disc_out.kt, disc_out.airmass, 1.0);
+    let kt_prime = clearness_index_zenith_independent(disc_out.kt, disc_out.airmass, 1.0);
     let w = temp_dew_c.map_or(-1.0, precipitable_water_from_dew_point);
     let m = crate::dirint_coeffs::coefficient(kt_prime, solar_zenith, -1.0, w).unwrap_or(f64::NAN);
     if !m.is_finite() {
@@ -289,8 +352,16 @@ pub fn dirint_series(
     use_delta_kt_prime: bool,
 ) -> Vec<f64> {
     let n = ghi.len();
-    assert_eq!(solar_zenith.len(), n, "dirint_series: solar_zenith length mismatch");
-    assert_eq!(day_of_year.len(), n, "dirint_series: day_of_year length mismatch");
+    assert_eq!(
+        solar_zenith.len(),
+        n,
+        "dirint_series: solar_zenith length mismatch"
+    );
+    assert_eq!(
+        day_of_year.len(),
+        n,
+        "dirint_series: day_of_year length mismatch"
+    );
     if let Some(td) = temp_dew_c {
         assert_eq!(td.len(), n, "dirint_series: temp_dew_c length mismatch");
     }
@@ -314,7 +385,11 @@ pub fn dirint_series(
             // Endpoints mirror the opposite direction — see pvlib
             // `_delta_kt_prime_dirint` (eqn 3).
             let prev = if i == 0 { kt_prime[1] } else { kt_prime[i - 1] };
-            let next = if i + 1 >= n { kt_prime[n - 2] } else { kt_prime[i + 1] };
+            let next = if i + 1 >= n {
+                kt_prime[n - 2]
+            } else {
+                kt_prime[i + 1]
+            };
             out.push(0.5 * ((kt_prime[i] - next).abs() + (kt_prime[i] - prev).abs()));
         }
         out
@@ -329,14 +404,14 @@ pub fn dirint_series(
             .map(|td| td[i])
             .filter(|t| t.is_finite())
             .map_or(-1.0, precipitable_water_from_dew_point);
-        let m = crate::dirint_coeffs::coefficient(
-            kt_prime[i],
-            solar_zenith[i],
-            delta_kt_prime[i],
-            w,
-        )
-        .unwrap_or(f64::NAN);
-        dni.push(if m.is_finite() { (dni_disc[i] * m).max(0.0) } else { 0.0 });
+        let m =
+            crate::dirint_coeffs::coefficient(kt_prime[i], solar_zenith[i], delta_kt_prime[i], w)
+                .unwrap_or(f64::NAN);
+        dni.push(if m.is_finite() {
+            (dni_disc[i] * m).max(0.0)
+        } else {
+            0.0
+        });
     }
     dni
 }
@@ -353,40 +428,62 @@ pub fn poa_direct(aoi_in: f64, dni: f64) -> f64 {
 }
 
 /// Reindl transposition model (anisotropic sky).
-/// 
+///
 /// A highly cited mathematical model bridging the gap between Hay-Davies and Perez models.
-/// 
+///
 /// # References
 /// Reindl, D.T., Beckman, W.A. and Duffie, J.A., 1990. "Evaluation of hourly tilt data models".
 #[allow(clippy::too_many_arguments)]
 #[inline]
-pub fn reindl(surface_tilt: f64, dhi: f64, ghi: f64, dni: f64, dni_extra: f64, solar_zenith: f64, aoi_in: f64) -> f64 {
+pub fn reindl(
+    surface_tilt: f64,
+    dhi: f64,
+    ghi: f64,
+    dni: f64,
+    dni_extra: f64,
+    solar_zenith: f64,
+    aoi_in: f64,
+) -> f64 {
     let mut a = 0.0;
-    if dni_extra > 0.0 { a = dni / dni_extra; }
+    if dni_extra > 0.0 {
+        a = dni / dni_extra;
+    }
     let a = a.clamp(0.0, 1.0);
-    
-    let cos_z = solar_zenith.to_radians().cos().max(85.0_f64.to_radians().cos());
+
+    let cos_z = solar_zenith
+        .to_radians()
+        .cos()
+        .max(85.0_f64.to_radians().cos());
     let cos_aoi = aoi_in.to_radians().cos().max(0.0);
     let r_b = cos_aoi / cos_z;
-    
+
     let cos_z_reindl = solar_zenith.to_radians().cos().max(0.0);
-    let f = if ghi > 0.0 { ((dni * cos_z_reindl) / ghi).sqrt() } else { 0.0 };
-    
+    let f = if ghi > 0.0 {
+        ((dni * cos_z_reindl) / ghi).sqrt()
+    } else {
+        0.0
+    };
+
     let tilt_rad = surface_tilt.to_radians();
-    let term1 = dhi * (1.0 - a) * (1.0 + tilt_rad.cos()) / 2.0 * (1.0 + f * (tilt_rad / 2.0).sin().powi(3));
+    let term1 =
+        dhi * (1.0 - a) * (1.0 + tilt_rad.cos()) / 2.0 * (1.0 + f * (tilt_rad / 2.0).sin().powi(3));
     let term2 = dhi * a * r_b;
-    
+
     term1 + term2
 }
 
 /// Clearness Index (Kt).
-/// 
+///
 /// The ratio of global horizontal irradiance to extraterrestrial horizontal irradiance.
 #[inline]
 pub fn clearness_index(ghi: f64, solar_zenith: f64, dni_extra: f64) -> f64 {
     let cos_z = solar_zenith.to_radians().cos().max(0.01);
     let ghi_extra = dni_extra * cos_z;
-    if ghi_extra <= 0.0 { 0.0 } else { (ghi / ghi_extra).clamp(0.0, 1.0) }
+    if ghi_extra <= 0.0 {
+        0.0
+    } else {
+        (ghi / ghi_extra).clamp(0.0, 1.0)
+    }
 }
 
 /// Cosine of the angle of incidence (AOI projection).
@@ -398,7 +495,12 @@ pub fn clearness_index(ghi: f64, solar_zenith: f64, dni_extra: f64) -> f64 {
 /// # References
 /// Same geometry as [`aoi`], but returns cos(AOI) without taking arccos.
 #[inline]
-pub fn aoi_projection(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64, solar_azimuth: f64) -> f64 {
+pub fn aoi_projection(
+    surface_tilt: f64,
+    surface_azimuth: f64,
+    solar_zenith: f64,
+    solar_azimuth: f64,
+) -> f64 {
     let tilt_rad = surface_tilt.to_radians();
     let surf_az_rad = surface_azimuth.to_radians();
     let zen_rad = solar_zenith.to_radians();
@@ -421,7 +523,13 @@ pub fn aoi_projection(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64
 /// - `solar_azimuth`: Solar azimuth angle [degrees]
 /// - `dni`: Direct normal irradiance [W/m²]
 #[inline]
-pub fn beam_component(surface_tilt: f64, surface_azimuth: f64, solar_zenith: f64, solar_azimuth: f64, dni: f64) -> f64 {
+pub fn beam_component(
+    surface_tilt: f64,
+    surface_azimuth: f64,
+    solar_zenith: f64,
+    solar_azimuth: f64,
+    dni: f64,
+) -> f64 {
     let proj = aoi_projection(surface_tilt, surface_azimuth, solar_zenith, solar_azimuth);
     (dni * proj).max(0.0)
 }
@@ -471,7 +579,12 @@ pub struct PoaComponents {
 /// - `poa_sky_diffuse`: Sky diffuse irradiance in the plane of array [W/m²]
 /// - `poa_ground_diffuse`: Ground-reflected irradiance in the plane of array [W/m²]
 #[inline]
-pub fn poa_components(aoi_val: f64, dni: f64, poa_sky_diffuse: f64, poa_ground_diffuse: f64) -> PoaComponents {
+pub fn poa_components(
+    aoi_val: f64,
+    dni: f64,
+    poa_sky_diffuse: f64,
+    poa_ground_diffuse: f64,
+) -> PoaComponents {
     let poa_direct = (dni * aoi_val.to_radians().cos()).max(0.0);
     let poa_diffuse = poa_sky_diffuse + poa_ground_diffuse;
     let poa_global = poa_direct + poa_diffuse;
@@ -532,10 +645,27 @@ pub fn get_sky_diffuse(
 
     match model {
         DiffuseModel::Isotropic => isotropic(surface_tilt, dhi),
-        DiffuseModel::Klucher => klucher(surface_tilt, surface_azimuth, dhi, ghi, solar_zenith, solar_azimuth, aoi_val),
+        DiffuseModel::Klucher => klucher(
+            surface_tilt,
+            surface_azimuth,
+            dhi,
+            ghi,
+            solar_zenith,
+            solar_azimuth,
+            aoi_val,
+        ),
         DiffuseModel::HayDavies => {
             let extra = dni_extra.unwrap_or(0.0);
-            haydavies(surface_tilt, surface_azimuth, dhi, dni, extra, solar_zenith, solar_azimuth, aoi_val)
+            haydavies(
+                surface_tilt,
+                surface_azimuth,
+                dhi,
+                dni,
+                extra,
+                solar_zenith,
+                solar_azimuth,
+                aoi_val,
+            )
         }
         DiffuseModel::Reindl => {
             let extra = dni_extra.unwrap_or(0.0);
@@ -544,7 +674,17 @@ pub fn get_sky_diffuse(
         DiffuseModel::Perez => {
             let extra = dni_extra.unwrap_or(0.0);
             let am = airmass.unwrap_or_else(|| atmosphere::get_relative_airmass(solar_zenith));
-            perez(surface_tilt, surface_azimuth, dhi, dni, extra, solar_zenith, solar_azimuth, am, aoi_val)
+            perez(
+                surface_tilt,
+                surface_azimuth,
+                dhi,
+                dni,
+                extra,
+                solar_zenith,
+                solar_azimuth,
+                am,
+                aoi_val,
+            )
         }
     }
 }
@@ -582,8 +722,16 @@ pub fn get_total_irradiance(
     let aoi_val = aoi(surface_tilt, surface_azimuth, solar_zenith, solar_azimuth);
 
     let sky_diffuse = get_sky_diffuse(
-        surface_tilt, surface_azimuth, solar_zenith, solar_azimuth,
-        dni, ghi, dhi, model, dni_extra, airmass,
+        surface_tilt,
+        surface_azimuth,
+        solar_zenith,
+        solar_azimuth,
+        dni,
+        ghi,
+        dhi,
+        model,
+        dni_extra,
+        airmass,
     );
 
     let ground_diffuse = get_ground_diffuse(surface_tilt, ghi, albedo);
@@ -650,14 +798,21 @@ pub fn disc(ghi: f64, solar_zenith: f64, day_of_year: i32, pressure: Option<f64>
 
     // DISC uses solar constant = 1370 with Spencer 1971 full Fourier series
     let b = 2.0 * PI * ((day_of_year - 1) as f64) / 365.0;
-    let rover = 1.00011 + 0.034221 * b.cos() + 0.00128 * b.sin()
-        + 0.000719 * (2.0 * b).cos() + 0.000077 * (2.0 * b).sin();
+    let rover = 1.00011
+        + 0.034221 * b.cos()
+        + 0.00128 * b.sin()
+        + 0.000719 * (2.0 * b).cos()
+        + 0.000077 * (2.0 * b).sin();
     let i0 = 1370.0 * rover;
 
     // Clearness index
     let cos_z = solar_zenith.to_radians().cos().max(min_cos_zenith);
     let ghi_extra = i0 * cos_z;
-    let kt = if ghi_extra > 0.0 { (ghi / ghi_extra).clamp(0.0, 1.0) } else { 0.0 };
+    let kt = if ghi_extra > 0.0 {
+        (ghi / ghi_extra).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
 
     // Airmass — DISC was calibrated against Kasten 1966, not Kasten-Young 1989
     // Kasten 1966: AM = 1 / (cos(z) + 0.15 * (93.885 - z)^(-1.253))
@@ -678,7 +833,11 @@ pub fn disc(ghi: f64, solar_zenith: f64, day_of_year: i32, pressure: Option<f64>
     // Guard against NaN airmass (e.g. numerical edge at the horizon)
     // so that `disc_kn`'s exp cannot produce NaN DNI below the zenith cutoff.
     if !am.is_finite() {
-        return DiscOutput { dni: 0.0, kt, airmass: f64::NAN };
+        return DiscOutput {
+            dni: 0.0,
+            kt,
+            airmass: f64::NAN,
+        };
     }
 
     let (kn, am) = disc_kn(kt, am);
@@ -688,7 +847,11 @@ pub fn disc(ghi: f64, solar_zenith: f64, day_of_year: i32, pressure: Option<f64>
         dni = 0.0;
     }
 
-    DiscOutput { dni, kt, airmass: am }
+    DiscOutput {
+        dni,
+        kt,
+        airmass: am,
+    }
 }
 
 /// Output of the Erbs-Driesse decomposition model.
@@ -729,11 +892,20 @@ pub fn erbs_driesse(ghi: f64, solar_zenith: f64, day_of_year: i32) -> ErbsDriess
     // Clearness index
     let cos_z = solar_zenith.to_radians().cos().max(min_cos_zenith);
     let ghi_extra = dni_extra * cos_z;
-    let kt = if ghi_extra > 0.0 { (ghi / ghi_extra).clamp(0.0, 1.0) } else { 0.0 };
+    let kt = if ghi_extra > 0.0 {
+        (ghi / ghi_extra).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
 
     // Central polynomial coefficients
-    let p = [12.26911439571261, -16.4705084246973, 4.246926715218317,
-             -0.11390583806313881, 0.946296633571001];
+    let p = [
+        12.26911439571261,
+        -16.4705084246973,
+        4.246926715218317,
+        -0.11390583806313881,
+        0.946296633571001,
+    ];
 
     // Diffuse fraction
     let df = if kt <= 0.216 {
@@ -770,8 +942,8 @@ pub fn erbs_driesse(ghi: f64, solar_zenith: f64, day_of_year: i32) -> ErbsDriess
 #[inline]
 pub fn king(surface_tilt: f64, dhi: f64, ghi: f64, solar_zenith: f64) -> f64 {
     let cos_tilt = surface_tilt.to_radians().cos();
-    let sky_diffuse = dhi * (1.0 + cos_tilt) / 2.0
-        + ghi * (0.012 * solar_zenith - 0.04) * (1.0 - cos_tilt) / 2.0;
+    let sky_diffuse =
+        dhi * (1.0 + cos_tilt) / 2.0 + ghi * (0.012 * solar_zenith - 0.04) * (1.0 - cos_tilt) / 2.0;
     sky_diffuse.max(0.0)
 }
 
@@ -821,9 +993,7 @@ pub fn dirindex(
 
 /// Knot vector for the Perez-Driesse quadratic B-splines.
 const PD_KNOTS: [f64; 13] = [
-    0.000, 0.000, 0.000,
-    0.061, 0.187, 0.333, 0.487, 0.643, 0.778, 0.839,
-    1.000, 1.000, 1.000,
+    0.000, 0.000, 0.000, 0.061, 0.187, 0.333, 0.487, 0.643, 0.778, 0.839, 1.000, 1.000, 1.000,
 ];
 
 /// Coefficient table for the Perez-Driesse splines.
@@ -833,20 +1003,38 @@ const PD_COEFS: [[[f64; 13]; 3]; 2] = [
     // i=1 (F1 coefficients)
     [
         // j=1: f11
-        [-0.053, -0.008,  0.131,  0.328,  0.557,  0.861,  1.212,  1.099,  0.544,  0.544,  0.000,  0.000,  0.000],
+        [
+            -0.053, -0.008, 0.131, 0.328, 0.557, 0.861, 1.212, 1.099, 0.544, 0.544, 0.000, 0.000,
+            0.000,
+        ],
         // j=2: f12
-        [ 0.529,  0.588,  0.770,  0.471,  0.241, -0.323, -1.239, -1.847,  0.157,  0.157,  0.000,  0.000,  0.000],
+        [
+            0.529, 0.588, 0.770, 0.471, 0.241, -0.323, -1.239, -1.847, 0.157, 0.157, 0.000, 0.000,
+            0.000,
+        ],
         // j=3: f13
-        [-0.028, -0.062, -0.167, -0.216, -0.300, -0.355, -0.444, -0.365, -0.213, -0.213,  0.000,  0.000,  0.000],
+        [
+            -0.028, -0.062, -0.167, -0.216, -0.300, -0.355, -0.444, -0.365, -0.213, -0.213, 0.000,
+            0.000, 0.000,
+        ],
     ],
     // i=2 (F2 coefficients)
     [
         // j=1: f21
-        [-0.071, -0.060, -0.026,  0.069,  0.086,  0.240,  0.305,  0.275,  0.118,  0.118,  0.000,  0.000,  0.000],
+        [
+            -0.071, -0.060, -0.026, 0.069, 0.086, 0.240, 0.305, 0.275, 0.118, 0.118, 0.000, 0.000,
+            0.000,
+        ],
         // j=2: f22
-        [ 0.061,  0.072,  0.106, -0.105, -0.085, -0.467, -0.797, -1.132, -1.455, -1.455,  0.000,  0.000,  0.000],
+        [
+            0.061, 0.072, 0.106, -0.105, -0.085, -0.467, -0.797, -1.132, -1.455, -1.455, 0.000,
+            0.000, 0.000,
+        ],
         // j=3: f23
-        [-0.019, -0.022, -0.032, -0.028, -0.012, -0.008,  0.047,  0.124,  0.292,  0.292,  0.000,  0.000,  0.000],
+        [
+            -0.019, -0.022, -0.032, -0.028, -0.012, -0.008, 0.047, 0.124, 0.292, 0.292, 0.000,
+            0.000, 0.000,
+        ],
     ],
 ];
 
@@ -919,7 +1107,11 @@ fn pd_calc_delta(dhi: f64, dni_extra: f64, solar_zenith: f64, airmass: Option<f6
         }
     };
 
-    let am = if am.is_nan() { atmosphere::get_relative_airmass(89.999) } else { am };
+    let am = if am.is_nan() {
+        atmosphere::get_relative_airmass(89.999)
+    } else {
+        am
+    };
 
     if dni_extra <= 0.0 || am <= 0.0 {
         return 0.0;
@@ -1005,7 +1197,10 @@ pub fn perez_driesse(
     let a = aoi_projection(surface_tilt, surface_azimuth, solar_zenith, solar_azimuth).max(0.0);
 
     // B = max(cos(zenith), cos(85))
-    let b = solar_zenith.to_radians().cos().max(85.0_f64.to_radians().cos());
+    let b = solar_zenith
+        .to_radians()
+        .cos()
+        .max(85.0_f64.to_radians().cos());
 
     let term1 = 0.5 * (1.0 - f1) * (1.0 + surface_tilt.to_radians().cos());
     let term2 = f1 * a / b;
@@ -1013,4 +1208,3 @@ pub fn perez_driesse(
 
     (dhi * (term1 + term2 + term3)).max(0.0)
 }
-

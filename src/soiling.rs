@@ -12,7 +12,13 @@
 ///
 /// # Returns
 /// Soiling mass accumulation fraction for the day.
-pub fn accumulation_model(rainfall: f64, cleaning_threshold: f64, tilt: f64, pm2_5: f64, pm10: f64) -> f64 {
+pub fn accumulation_model(
+    rainfall: f64,
+    cleaning_threshold: f64,
+    tilt: f64,
+    pm2_5: f64,
+    pm10: f64,
+) -> f64 {
     if rainfall >= cleaning_threshold {
         return 0.0; // Cleaned by rain
     }
@@ -107,7 +113,14 @@ pub fn hsu(
     previous_mass: f64,
 ) -> (f64, f64) {
     let is_cleaned = rainfall >= cleaning_threshold;
-    let mass_this_step = hsu_mass_rate(pm2_5, pm10, depo_veloc_2_5, depo_veloc_10, surface_tilt, dt_sec);
+    let mass_this_step = hsu_mass_rate(
+        pm2_5,
+        pm10,
+        depo_veloc_2_5,
+        depo_veloc_10,
+        surface_tilt,
+        dt_sec,
+    );
 
     let accum_mass = if is_cleaned {
         mass_this_step // reset after cleaning

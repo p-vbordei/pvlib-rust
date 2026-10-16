@@ -40,8 +40,7 @@ fn test_solar_position_batch_vs_scalar() {
     let loc = tucson();
     let times = test_times();
 
-    let (batch_zen, batch_azi, batch_elev) =
-        batch::solar_position_batch(&loc, &times).unwrap();
+    let (batch_zen, batch_azi, batch_elev) = batch::solar_position_batch(&loc, &times).unwrap();
 
     for (i, t) in times.iter().enumerate() {
         let scalar = solarposition::get_solarposition(&loc, *t).unwrap();
@@ -234,8 +233,7 @@ fn test_erbs_batch_vs_scalar() {
     let day_of_year: Vec<u32> = vec![15, 80, 120, 172, 200, 260, 350];
     let dni_extra = vec![1415.0, 1390.0, 1370.0, 1366.0, 1360.0, 1370.0, 1412.0];
 
-    let (batch_dni, batch_dhi) =
-        batch::erbs_batch(&ghi, &zenith, &day_of_year, &dni_extra);
+    let (batch_dni, batch_dhi) = batch::erbs_batch(&ghi, &zenith, &day_of_year, &dni_extra);
 
     for i in 0..ghi.len() {
         let (scalar_dni, scalar_dhi) =
@@ -346,12 +344,10 @@ fn test_faiman_batch_vs_scalar() {
     let u0 = 25.0;
     let u1 = 6.84;
 
-    let batch_result =
-        batch::faiman_batch(&poa_global, &temp_air, &wind_speed, u0, u1);
+    let batch_result = batch::faiman_batch(&poa_global, &temp_air, &wind_speed, u0, u1);
 
     for i in 0..poa_global.len() {
-        let scalar =
-            temperature::faiman(poa_global[i], temp_air[i], wind_speed[i], u0, u1);
+        let scalar = temperature::faiman(poa_global[i], temp_air[i], wind_speed[i], u0, u1);
         assert_eq!(
             batch_result[i], scalar,
             "faiman mismatch at index {}: batch={} scalar={}",
@@ -410,7 +406,9 @@ fn test_iam_ashrae_batch_vs_scalar() {
 
 #[test]
 fn test_pvwatts_ac_batch_vs_scalar() {
-    let pdc_vals = vec![0.0, 500.0, 1500.0, 2500.0, 3500.0, 4500.0, 5000.0, 5500.0, 6000.0];
+    let pdc_vals = vec![
+        0.0, 500.0, 1500.0, 2500.0, 3500.0, 4500.0, 5000.0, 5500.0, 6000.0,
+    ];
     let pdc0 = 5000.0;
     let eta_inv_nom = 0.96;
     let eta_inv_ref = 0.9637;

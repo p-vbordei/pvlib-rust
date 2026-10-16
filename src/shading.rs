@@ -147,13 +147,9 @@ pub fn shaded_fraction1d(
     // Eq. (12) from Anderson & Jensen (2024)
     let t_asterisk = 0.5
         + thetas_1_s_diff.to_radians().cos().abs() / cos_theta_2_s_diff_abs / 2.0
-        + (psza.signum()
-            * surface_to_axis_offset
-            / collector_width_safe
-            / cos_theta_2_s_diff_abs
+        + (psza.signum() * surface_to_axis_offset / collector_width_safe / cos_theta_2_s_diff_abs
             * (thetas_2_s_diff.to_radians().sin() - thetas_1_s_diff.to_radians().sin()))
-        - (pitch / collector_width_safe
-            * theta_s_rotation_diff.to_radians().cos()
+        - (pitch / collector_width_safe * theta_s_rotation_diff.to_radians().cos()
             / cos_theta_2_s_diff_abs
             / cross_axis_cos);
 

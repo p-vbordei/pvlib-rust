@@ -206,7 +206,10 @@ fn bishop88_inner(
         (1.0, 0.0)
     };
 
-    let i = p.photocurrent - p.saturation_current * v_star.exp_m1() - vd * g_sh - i_recomb
+    let i = p.photocurrent
+        - p.saturation_current * v_star.exp_m1()
+        - vd * g_sh
+        - i_recomb
         - i_breakdown;
     let v = vd - i * p.resistance_series;
     let out = Bishop88Output {
@@ -257,8 +260,8 @@ fn bishop88_inner(
 
     let d2i_dvd = -g_diode / p.n_ns_vth - grad_2i_recomb - grad2i_brk;
     let d2v_dvd = -d2i_dvd * p.resistance_series;
-    let d2p_dvd = dv_dvd * di_dv + v * (d2i_dvd / dv_dvd - di_dvd * d2v_dvd / (dv_dvd * dv_dvd))
-        + di_dvd;
+    let d2p_dvd =
+        dv_dvd * di_dv + v * (d2i_dvd / dv_dvd - di_dvd * d2v_dvd / (dv_dvd * dv_dvd)) + di_dvd;
 
     let grad = Bishop88Gradients {
         di_dvd,

@@ -36,11 +36,22 @@ fn isotropic_transposition_matches_pvlib() {
         let sa = golden::lookup_angles(&angles, &row.slug, &row.timestamp_utc);
         let (solar_zenith, solar_azimuth) = (sa.apparent_zenith, sa.azimuth);
 
-        let aoi = irradiance::aoi(row.surface_tilt, row.surface_azimuth, solar_zenith, solar_azimuth);
-        let poa_beam =
-            irradiance::beam_component(row.surface_tilt, row.surface_azimuth, solar_zenith, solar_azimuth, row.dni);
+        let aoi = irradiance::aoi(
+            row.surface_tilt,
+            row.surface_azimuth,
+            solar_zenith,
+            solar_azimuth,
+        );
+        let poa_beam = irradiance::beam_component(
+            row.surface_tilt,
+            row.surface_azimuth,
+            solar_zenith,
+            solar_azimuth,
+            row.dni,
+        );
         let poa_sky_diffuse = irradiance::isotropic(row.surface_tilt, row.dhi);
-        let poa_ground_diffuse = irradiance::get_ground_diffuse(row.surface_tilt, row.ghi, row.albedo);
+        let poa_ground_diffuse =
+            irradiance::get_ground_diffuse(row.surface_tilt, row.ghi, row.albedo);
         let poa_global = poa_beam + poa_sky_diffuse + poa_ground_diffuse;
 
         let slug = row.slug.clone();
@@ -53,7 +64,11 @@ fn isotropic_transposition_matches_pvlib() {
             ("aoi", aoi, row.aoi),
             ("poa_beam", poa_beam, row.poa_beam),
             ("poa_sky_diffuse", poa_sky_diffuse, row.poa_sky_diffuse),
-            ("poa_ground_diffuse", poa_ground_diffuse, row.poa_ground_diffuse),
+            (
+                "poa_ground_diffuse",
+                poa_ground_diffuse,
+                row.poa_ground_diffuse,
+            ),
             ("poa_global", poa_global, row.poa_global),
         ] {
             let err = (got - want).abs();
@@ -74,12 +89,17 @@ fn isotropic_transposition_matches_pvlib() {
         }
     }
 
-    stats.report("golden_transposition: aoi/poa_beam/poa_sky_diffuse/poa_ground_diffuse/poa_global vs pvlib");
+    stats.report(
+        "golden_transposition: aoi/poa_beam/poa_sky_diffuse/poa_ground_diffuse/poa_global vs pvlib",
+    );
     if n_bad > 0 {
         eprintln!("  TOLERANCE VIOLATIONS: {n_bad}; first {}:", examples.len());
         for e in &examples {
             eprintln!("    {e}");
         }
     }
-    assert_eq!(n_bad, 0, "{n_bad} (row, column) pairs exceeded the irradiance tolerance -- see report above");
+    assert_eq!(
+        n_bad, 0,
+        "{n_bad} (row, column) pairs exceeded the irradiance tolerance -- see report above"
+    );
 }

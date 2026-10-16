@@ -1,7 +1,7 @@
+use crate::location::Location;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use solar_positioning::{spa, time::DeltaT};
-use crate::location::Location;
 
 use std::f64::consts::PI;
 
@@ -38,7 +38,10 @@ pub struct SolarPosition {
 /// solar-position sensitivity to delta-T is <2e-5 deg, far under the 0.01 deg
 /// Gate G1 budget, so no caller-supplied override is exposed.
 #[inline]
-pub fn get_solarposition(location: &Location, time: DateTime<Tz>) -> Result<SolarPosition, SpaError> {
+pub fn get_solarposition(
+    location: &Location,
+    time: DateTime<Tz>,
+) -> Result<SolarPosition, SpaError> {
     let utc_time: DateTime<Utc> = time.with_timezone(&Utc);
     let delta_t = DeltaT::estimate_from_date_like(utc_time)?;
 
@@ -178,8 +181,7 @@ fn calculate_simple_day_angle(day_of_year: f64, offset: f64) -> f64 {
 pub fn equation_of_time_spencer71(day_of_year: f64) -> f64 {
     let day_angle = calculate_simple_day_angle(day_of_year, 1.0);
     (1440.0 / (2.0 * PI))
-        * (0.0000075
-            + 0.001868 * day_angle.cos()
+        * (0.0000075 + 0.001868 * day_angle.cos()
             - 0.032077 * day_angle.sin()
             - 0.014615 * (2.0 * day_angle).cos()
             - 0.040849 * (2.0 * day_angle).sin())
@@ -203,9 +205,7 @@ pub fn equation_of_time_pvcdrom(day_of_year: f64) -> f64 {
 #[inline]
 pub fn declination_spencer71(day_of_year: f64) -> f64 {
     let day_angle = calculate_simple_day_angle(day_of_year, 1.0);
-    0.006918
-        - 0.399912 * day_angle.cos()
-        + 0.070257 * day_angle.sin()
+    0.006918 - 0.399912 * day_angle.cos() + 0.070257 * day_angle.sin()
         - 0.006758 * (2.0 * day_angle).cos()
         + 0.000907 * (2.0 * day_angle).sin()
         - 0.002697 * (3.0 * day_angle).cos()
@@ -241,8 +241,8 @@ pub fn hour_angle(hours_from_midnight_utc: f64, longitude: f64, equation_of_time
 /// All inputs are in radians.
 #[inline]
 pub fn solar_zenith_analytical(latitude: f64, hour_angle: f64, declination: f64) -> f64 {
-    let cos_zenith = declination.cos() * latitude.cos() * hour_angle.cos()
-        + declination.sin() * latitude.sin();
+    let cos_zenith =
+        declination.cos() * latitude.cos() * hour_angle.cos() + declination.sin() * latitude.sin();
     // clamp to [-1, 1] before acos to avoid NaN from floating point errors
     cos_zenith.clamp(-1.0, 1.0).acos()
 }
@@ -333,8 +333,7 @@ pub fn sun_rise_set_transit_geometric(
         (sunrise_angle - longitude - equation_of_time / 4.0) / 15.0 + 12.0 + utc_offset_hours;
     let sunset_hour =
         (sunset_angle - longitude - equation_of_time / 4.0) / 15.0 + 12.0 + utc_offset_hours;
-    let transit_hour =
-        (0.0 - longitude - equation_of_time / 4.0) / 15.0 + 12.0 + utc_offset_hours;
+    let transit_hour = (0.0 - longitude - equation_of_time / 4.0) / 15.0 + 12.0 + utc_offset_hours;
 
     Some(SunRiseSetTransit {
         sunrise: sunrise_hour,

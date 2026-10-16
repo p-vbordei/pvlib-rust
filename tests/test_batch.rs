@@ -1,8 +1,8 @@
 use chrono::{NaiveDate, TimeZone};
 use chrono_tz::US::Eastern;
-use pvlib::location::Location;
 use pvlib::batch;
-use pvlib::{atmosphere, irradiance, iam, inverter};
+use pvlib::location::Location;
+use pvlib::{atmosphere, iam, inverter, irradiance};
 
 /// Helper: create a test location (Tucson, AZ).
 fn tucson() -> Location {
@@ -34,7 +34,12 @@ fn test_batch_solar_position() {
     assert_eq!(elevation.len(), 3);
 
     // Morning should have higher zenith than noon
-    assert!(zenith[1] < zenith[0], "noon zenith {} should be less than morning {}", zenith[1], zenith[0]);
+    assert!(
+        zenith[1] < zenith[0],
+        "noon zenith {} should be less than morning {}",
+        zenith[1],
+        zenith[0]
+    );
 
     // Zenith should be reasonable (0-90 for daytime)
     for z in &zenith {
@@ -151,7 +156,11 @@ fn test_batch_extra_radiation() {
     assert_eq!(extra.len(), 4);
     for e in &extra {
         // Should be around 1366 W/m2 +/- ~3%
-        assert!(*e > 1320.0 && *e < 1420.0, "extra radiation {} out of range", e);
+        assert!(
+            *e > 1320.0 && *e < 1420.0,
+            "extra radiation {} out of range",
+            e
+        );
     }
 }
 
@@ -207,7 +216,9 @@ fn test_batch_matches_scalar_airmass() {
         assert!(
             (batch_am - scalar_am).abs() < 1e-10,
             "Mismatch at zenith {}: batch={} scalar={}",
-            z, batch_am, scalar_am
+            z,
+            batch_am,
+            scalar_am
         );
     }
 }
@@ -226,7 +237,9 @@ fn test_batch_matches_scalar_iam() {
         assert!(
             (batch_iam - scalar_iam).abs() < 1e-10,
             "Mismatch at aoi {}: batch={} scalar={}",
-            a, batch_iam, scalar_iam
+            a,
+            batch_iam,
+            scalar_iam
         );
     }
 }
@@ -245,7 +258,9 @@ fn test_batch_matches_scalar_inverter() {
         assert!(
             (batch_ac - scalar_ac).abs() < 1e-10,
             "Mismatch at pdc {}: batch={} scalar={}",
-            p, batch_ac, scalar_ac
+            p,
+            batch_ac,
+            scalar_ac
         );
     }
 }
@@ -267,7 +282,10 @@ fn test_batch_modelchain_builder() {
     assert!((chain.inverter_capacity - 5500.0).abs() < 1e-10);
     assert!((chain.inverter_efficiency - 0.97).abs() < 1e-10);
     assert!((chain.albedo - 0.25).abs() < 1e-10);
-    assert_eq!(chain.transposition_model, irradiance::DiffuseModel::HayDavies);
+    assert_eq!(
+        chain.transposition_model,
+        irradiance::DiffuseModel::HayDavies
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -359,8 +377,18 @@ fn test_batch_modelchain_basic() {
 
     // All outputs should be positive for daytime inputs
     for i in 0..3 {
-        assert!(result.ac_power[i] > 0.0, "ac_power[{}] = {}", i, result.ac_power[i]);
-        assert!(result.dc_power[i] > 0.0, "dc_power[{}] = {}", i, result.dc_power[i]);
+        assert!(
+            result.ac_power[i] > 0.0,
+            "ac_power[{}] = {}",
+            i,
+            result.ac_power[i]
+        );
+        assert!(
+            result.dc_power[i] > 0.0,
+            "dc_power[{}] = {}",
+            i,
+            result.dc_power[i]
+        );
         assert!(result.poa_global[i] > 0.0);
         assert!(result.effective_irradiance[i] > 0.0);
     }
@@ -394,7 +422,12 @@ fn test_batch_modelchain_matches_scalar_pipeline() {
     let albedo = 0.2;
     let transposition_model = irradiance::DiffuseModel::Perez;
 
-    let chain = batch::BatchModelChain::pvwatts(loc.clone(), surface_tilt, surface_azimuth, system_capacity_dc);
+    let chain = batch::BatchModelChain::pvwatts(
+        loc.clone(),
+        surface_tilt,
+        surface_azimuth,
+        system_capacity_dc,
+    );
 
     // 5 distinct daytime timestamps with realistic weather.
     // All times are chosen so the sun is well above the horizon for
@@ -406,11 +439,11 @@ fn test_batch_modelchain_matches_scalar_pipeline() {
         Eastern.with_ymd_and_hms(2020, 9, 22, 13, 0, 0).unwrap(),
         Eastern.with_ymd_and_hms(2020, 12, 21, 12, 0, 0).unwrap(),
     ];
-    let ghi_vals   = vec![650.0, 700.0, 950.0, 700.0, 500.0];
-    let dni_vals   = vec![550.0, 600.0, 850.0, 600.0, 400.0];
-    let dhi_vals   = vec![100.0, 100.0, 100.0, 100.0,  100.0];
-    let temp_vals  = vec![ 18.0,  28.0,  32.0,  26.0,  12.0];
-    let wind_vals  = vec![  3.0,   2.0,   1.5,   2.5,   4.0];
+    let ghi_vals = vec![650.0, 700.0, 950.0, 700.0, 500.0];
+    let dni_vals = vec![550.0, 600.0, 850.0, 600.0, 400.0];
+    let dhi_vals = vec![100.0, 100.0, 100.0, 100.0, 100.0];
+    let temp_vals = vec![18.0, 28.0, 32.0, 26.0, 12.0];
+    let wind_vals = vec![3.0, 2.0, 1.5, 2.5, 4.0];
 
     let weather = batch::WeatherSeries {
         times: times.clone(),
@@ -443,9 +476,13 @@ fn test_batch_modelchain_matches_scalar_pipeline() {
         let dni_extra = irradiance::get_extra_radiation(doy);
 
         let poa = irradiance::get_total_irradiance(
-            surface_tilt, surface_azimuth,
-            solpos.zenith, solpos.azimuth,
-            dni_vals[i], ghi_vals[i], dhi_vals[i],
+            surface_tilt,
+            surface_azimuth,
+            solpos.zenith,
+            solpos.azimuth,
+            dni_vals[i],
+            ghi_vals[i],
+            dhi_vals[i],
             albedo,
             transposition_model,
             Some(dni_extra),
@@ -455,8 +492,8 @@ fn test_batch_modelchain_matches_scalar_pipeline() {
         let iam_val = iam::physical(aoi_val, 1.526, 4.0, 0.002);
         let eff_irrad = (poa.poa_direct * iam_val + poa.poa_diffuse).max(0.0);
         let t_cell = temp_vals[i] + poa.poa_global * (45.0 - 20.0) / 800.0;
-        let pdc = (system_capacity_dc * (eff_irrad / 1000.0)
-            * (1.0 + gamma_pdc * (t_cell - 25.0))).max(0.0);
+        let pdc = (system_capacity_dc * (eff_irrad / 1000.0) * (1.0 + gamma_pdc * (t_cell - 25.0)))
+            .max(0.0);
         let pac = pvlib::inverter::pvwatts_ac(pdc, system_capacity_dc, inverter_efficiency, 0.9637);
 
         assert_f64_identical(batch_result.solar_zenith[i], solpos.zenith, "zenith", i);
@@ -465,9 +502,24 @@ fn test_batch_modelchain_matches_scalar_pipeline() {
         assert_f64_identical(batch_result.aoi[i], aoi_val, "aoi", i);
         assert_f64_identical(batch_result.poa_global[i], poa.poa_global, "poa_global", i);
         assert_f64_identical(batch_result.poa_direct[i], poa.poa_direct, "poa_direct", i);
-        assert_f64_identical(batch_result.poa_diffuse[i], poa.poa_diffuse, "poa_diffuse", i);
-        assert_f64_identical(batch_result.cell_temperature[i], t_cell, "cell_temperature", i);
-        assert_f64_identical(batch_result.effective_irradiance[i], eff_irrad, "effective_irradiance", i);
+        assert_f64_identical(
+            batch_result.poa_diffuse[i],
+            poa.poa_diffuse,
+            "poa_diffuse",
+            i,
+        );
+        assert_f64_identical(
+            batch_result.cell_temperature[i],
+            t_cell,
+            "cell_temperature",
+            i,
+        );
+        assert_f64_identical(
+            batch_result.effective_irradiance[i],
+            eff_irrad,
+            "effective_irradiance",
+            i,
+        );
         assert_f64_identical(batch_result.dc_power[i], pdc, "dc_power", i);
         assert_f64_identical(batch_result.ac_power[i], pac, "ac_power", i);
     }
@@ -479,8 +531,8 @@ fn test_batch_modelchain_matches_scalar_pipeline() {
 
 #[test]
 fn test_batch_modelchain_tmy_year_performance() {
-    use std::time::Instant;
     use chrono::Duration;
+    use std::time::Instant;
 
     let loc = tucson();
     let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0);
@@ -494,22 +546,26 @@ fn test_batch_modelchain_tmy_year_performance() {
         .collect();
 
     // Synthetic sinusoidal weather data
-    let ghi: Vec<f64> = (0..n).map(|h| {
-        let hour_of_day = (h % 24) as f64;
-        if (6.0..=18.0).contains(&hour_of_day) {
-            let solar_fraction = ((hour_of_day - 6.0) / 6.0 * std::f64::consts::PI).sin();
-            800.0 * solar_fraction
-        } else {
-            0.0
-        }
-    }).collect();
+    let ghi: Vec<f64> = (0..n)
+        .map(|h| {
+            let hour_of_day = (h % 24) as f64;
+            if (6.0..=18.0).contains(&hour_of_day) {
+                let solar_fraction = ((hour_of_day - 6.0) / 6.0 * std::f64::consts::PI).sin();
+                800.0 * solar_fraction
+            } else {
+                0.0
+            }
+        })
+        .collect();
 
     let dni: Vec<f64> = ghi.iter().map(|g| g * 0.7).collect();
     let dhi: Vec<f64> = ghi.iter().map(|g| g * 0.3).collect();
-    let temp_air: Vec<f64> = (0..n).map(|h| {
-        let hour_of_day = (h % 24) as f64;
-        20.0 + 10.0 * ((hour_of_day - 14.0) / 12.0 * std::f64::consts::PI).sin()
-    }).collect();
+    let temp_air: Vec<f64> = (0..n)
+        .map(|h| {
+            let hour_of_day = (h % 24) as f64;
+            20.0 + 10.0 * ((hour_of_day - 14.0) / 12.0 * std::f64::consts::PI).sin()
+        })
+        .collect();
     let wind_speed: Vec<f64> = vec![2.0; n];
 
     let weather = batch::WeatherSeries {
@@ -535,14 +591,21 @@ fn test_batch_modelchain_tmy_year_performance() {
     let peak = result.peak_power();
     let cf = result.capacity_factor(5000.0);
 
-    println!("Total energy: {:.0} Wh ({:.1} kWh)", total_energy, total_energy / 1000.0);
+    println!(
+        "Total energy: {:.0} Wh ({:.1} kWh)",
+        total_energy,
+        total_energy / 1000.0
+    );
     println!("Peak AC power: {:.0} W", peak);
     println!("Capacity factor: {:.3}", cf);
 
     // Sanity checks
     assert!(total_energy > 0.0, "Total energy should be positive");
     assert!(peak > 0.0, "Peak power should be positive");
-    assert!(peak <= 5000.0 * 1.1, "Peak power should not greatly exceed capacity");
+    assert!(
+        peak <= 5000.0 * 1.1,
+        "Peak power should not greatly exceed capacity"
+    );
     assert!(cf > 0.0 && cf < 1.0, "Capacity factor {} out of range", cf);
 
     // Typical capacity factor for Tucson ~20-25%, with synthetic data maybe different
@@ -559,12 +622,22 @@ fn test_batch_modelchain_tmy_year_performance() {
 fn test_solar_position_batch_utc() {
     // Summer daytime timestamps in UTC for Tucson (lat 32.2, lon -110.9)
     let times = vec![
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(18, 0, 0).unwrap(), // ~11 AM local
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(19, 0, 0).unwrap(), // ~noon local
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(20, 0, 0).unwrap(), // ~1 PM local
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(18, 0, 0)
+            .unwrap(), // ~11 AM local
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(19, 0, 0)
+            .unwrap(), // ~noon local
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(20, 0, 0)
+            .unwrap(), // ~1 PM local
     ];
 
-    let (zenith, azimuth, elevation) = batch::solar_position_batch_utc(32.2, -110.9, 700.0, &times).unwrap();
+    let (zenith, azimuth, elevation) =
+        batch::solar_position_batch_utc(32.2, -110.9, 700.0, &times).unwrap();
 
     assert_eq!(zenith.len(), 3);
     assert_eq!(azimuth.len(), 3);
@@ -577,26 +650,52 @@ fn test_solar_position_batch_utc() {
 
     // Elevation + zenith = 90
     for (z, e) in zenith.iter().zip(elevation.iter()) {
-        assert!((z + e - 90.0).abs() < 1e-10, "zenith {} + elevation {} != 90", z, e);
+        assert!(
+            (z + e - 90.0).abs() < 1e-10,
+            "zenith {} + elevation {} != 90",
+            z,
+            e
+        );
     }
 }
 
 #[test]
 fn test_solar_position_batch_utc_matches_tz_version() {
     // Create the same moment in time via both paths and verify identical results.
-    let ndt = NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(19, 0, 0).unwrap();
+    let ndt = NaiveDate::from_ymd_opt(2020, 6, 15)
+        .unwrap()
+        .and_hms_opt(19, 0, 0)
+        .unwrap();
 
     // UTC convenience function
-    let (zen_utc, az_utc, el_utc) = batch::solar_position_batch_utc(32.2, -110.9, 700.0, &[ndt]).unwrap();
+    let (zen_utc, az_utc, el_utc) =
+        batch::solar_position_batch_utc(32.2, -110.9, 700.0, &[ndt]).unwrap();
 
     // Existing tz-aware path: construct the same instant manually
     let loc = Location::new(32.2, -110.9, chrono_tz::UTC, 700.0, "test");
-    let dt = chrono::Utc.from_utc_datetime(&ndt).with_timezone(&chrono_tz::UTC);
+    let dt = chrono::Utc
+        .from_utc_datetime(&ndt)
+        .with_timezone(&chrono_tz::UTC);
     let (zen_tz, az_tz, el_tz) = batch::solar_position_batch(&loc, &[dt]).unwrap();
 
-    assert!((zen_utc[0] - zen_tz[0]).abs() < 1e-10, "zenith mismatch: {} vs {}", zen_utc[0], zen_tz[0]);
-    assert!((az_utc[0] - az_tz[0]).abs() < 1e-10, "azimuth mismatch: {} vs {}", az_utc[0], az_tz[0]);
-    assert!((el_utc[0] - el_tz[0]).abs() < 1e-10, "elevation mismatch: {} vs {}", el_utc[0], el_tz[0]);
+    assert!(
+        (zen_utc[0] - zen_tz[0]).abs() < 1e-10,
+        "zenith mismatch: {} vs {}",
+        zen_utc[0],
+        zen_tz[0]
+    );
+    assert!(
+        (az_utc[0] - az_tz[0]).abs() < 1e-10,
+        "azimuth mismatch: {} vs {}",
+        az_utc[0],
+        az_tz[0]
+    );
+    assert!(
+        (el_utc[0] - el_tz[0]).abs() < 1e-10,
+        "elevation mismatch: {} vs {}",
+        el_utc[0],
+        el_tz[0]
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -606,9 +705,18 @@ fn test_solar_position_batch_utc_matches_tz_version() {
 #[test]
 fn test_weather_series_from_utc() {
     let timestamps = vec![
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(18, 0, 0).unwrap(),
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(19, 0, 0).unwrap(),
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(20, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(18, 0, 0)
+            .unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(19, 0, 0)
+            .unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(20, 0, 0)
+            .unwrap(),
     ];
     let ghi = vec![600.0, 900.0, 700.0];
     let dni = vec![500.0, 800.0, 600.0];
@@ -617,10 +725,15 @@ fn test_weather_series_from_utc() {
     let wind_speed = vec![2.0, 1.5, 2.5];
 
     let ws = batch::WeatherSeries::from_utc(
-        &timestamps, "US/Eastern",
-        ghi.clone(), dni.clone(), dhi.clone(),
-        temp_air.clone(), wind_speed.clone(),
-    ).unwrap();
+        &timestamps,
+        "US/Eastern",
+        ghi.clone(),
+        dni.clone(),
+        dhi.clone(),
+        temp_air.clone(),
+        wind_speed.clone(),
+    )
+    .unwrap();
 
     assert_eq!(ws.times.len(), 3);
     assert_eq!(ws.ghi.len(), 3);
@@ -634,12 +747,19 @@ fn test_weather_series_from_utc() {
 #[test]
 fn test_weather_series_from_utc_invalid_tz() {
     let timestamps = vec![
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(18, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(18, 0, 0)
+            .unwrap(),
     ];
     let result = batch::WeatherSeries::from_utc(
-        &timestamps, "Invalid/Timezone",
-        vec![600.0], vec![500.0], vec![100.0],
-        vec![28.0], vec![2.0],
+        &timestamps,
+        "Invalid/Timezone",
+        vec![600.0],
+        vec![500.0],
+        vec![100.0],
+        vec![28.0],
+        vec![2.0],
     );
     assert!(result.is_err());
 }
@@ -677,7 +797,11 @@ fn test_simulation_series_has_elevation() {
         assert!(
             (sum - 90.0).abs() < 1e-10,
             "elevation[{}] ({}) + zenith[{}] ({}) = {}, expected 90.0",
-            i, result.solar_elevation[i], i, result.solar_zenith[i], sum
+            i,
+            result.solar_elevation[i],
+            i,
+            result.solar_zenith[i],
+            sum
         );
     }
 }
@@ -707,8 +831,8 @@ fn ghi_only_weather() -> batch::WeatherSeries {
 #[test]
 fn test_batch_modelchain_auto_decomposition() {
     let loc = tucson();
-    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_auto_decomposition(true);
+    let chain =
+        batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_auto_decomposition(true);
 
     assert!(chain.auto_decomposition);
 
@@ -721,12 +845,14 @@ fn test_batch_modelchain_auto_decomposition() {
         assert!(
             result.ac_power[i] > 0.0,
             "ac_power[{}] = {} should be positive with auto decomposition",
-            i, result.ac_power[i]
+            i,
+            result.ac_power[i]
         );
         assert!(
             result.poa_global[i] > 0.0,
             "poa_global[{}] = {} should be positive with auto decomposition",
-            i, result.poa_global[i]
+            i,
+            result.poa_global[i]
         );
     }
 }
@@ -746,7 +872,8 @@ fn test_batch_modelchain_no_decomposition_zero_power() {
         assert!(
             result.poa_direct[i].abs() < 1.0,
             "poa_direct[{}] = {} should be near-zero without decomposition",
-            i, result.poa_direct[i]
+            i,
+            result.poa_direct[i]
         );
     }
 }
@@ -794,17 +921,23 @@ fn test_auto_decomposition_matches_manual_erbs() {
         assert!(
             (result_auto.poa_global[i] - result_manual.poa_global[i]).abs() < 1e-6,
             "poa_global mismatch at {}: auto={} manual={}",
-            i, result_auto.poa_global[i], result_manual.poa_global[i]
+            i,
+            result_auto.poa_global[i],
+            result_manual.poa_global[i]
         );
         assert!(
             (result_auto.ac_power[i] - result_manual.ac_power[i]).abs() < 1e-6,
             "ac_power mismatch at {}: auto={} manual={}",
-            i, result_auto.ac_power[i], result_manual.ac_power[i]
+            i,
+            result_auto.ac_power[i],
+            result_manual.ac_power[i]
         );
         assert!(
             (result_auto.dc_power[i] - result_manual.dc_power[i]).abs() < 1e-6,
             "dc_power mismatch at {}: auto={} manual={}",
-            i, result_auto.dc_power[i], result_manual.dc_power[i]
+            i,
+            result_auto.dc_power[i],
+            result_manual.dc_power[i]
         );
     }
 }
@@ -835,8 +968,8 @@ fn test_batch_modelchain_system_losses() {
     let result_no_loss = chain_no_loss.run(&weather).unwrap();
 
     // 14% losses
-    let chain_14 = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_system_losses(0.14);
+    let chain_14 =
+        batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_system_losses(0.14);
     let result_14 = chain_14.run(&weather).unwrap();
 
     // DC power with 14% losses should be ~86% of no-loss DC power
@@ -845,7 +978,8 @@ fn test_batch_modelchain_system_losses() {
         assert!(
             (ratio - 0.86).abs() < 0.001,
             "dc_power ratio at [{}] is {}, expected ~0.86",
-            i, ratio
+            i,
+            ratio
         );
     }
 
@@ -854,7 +988,9 @@ fn test_batch_modelchain_system_losses() {
         assert!(
             result_14.ac_power[i] < result_no_loss.ac_power[i],
             "ac_power[{}] with losses ({}) should be less than without ({})",
-            i, result_14.ac_power[i], result_no_loss.ac_power[i]
+            i,
+            result_14.ac_power[i],
+            result_no_loss.ac_power[i]
         );
     }
 }
@@ -881,8 +1017,8 @@ fn test_batch_modelchain_zero_losses() {
     let result_default = chain_default.run(&weather).unwrap();
 
     // Explicitly set losses to 0.0
-    let chain_zero = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_system_losses(0.0);
+    let chain_zero =
+        batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_system_losses(0.0);
     let result_zero = chain_zero.run(&weather).unwrap();
 
     // Should be exactly identical
@@ -926,8 +1062,7 @@ fn test_batch_modelchain_bifacial() {
     let result_mono = mono.run(&weather).unwrap();
 
     // Bifacial with typical parameters
-    let bifi = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_bifacial(0.75, 0.25);
+    let bifi = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_bifacial(0.75, 0.25);
     let result_bifi = bifi.run(&weather).unwrap();
 
     // Bifacial should produce more power than monofacial
@@ -935,7 +1070,9 @@ fn test_batch_modelchain_bifacial() {
         assert!(
             result_bifi.ac_power[i] > result_mono.ac_power[i],
             "bifacial ac_power[{}] ({}) should exceed monofacial ({})",
-            i, result_bifi.ac_power[i], result_mono.ac_power[i]
+            i,
+            result_bifi.ac_power[i],
+            result_mono.ac_power[i]
         );
         // Ratio should be reasonable: less than 1.30 (25% DC cap, but inverter
         // nonlinear efficiency can slightly amplify the ratio at AC level)
@@ -943,7 +1080,8 @@ fn test_batch_modelchain_bifacial() {
         assert!(
             ratio < 1.30,
             "bifacial/monofacial ratio at [{}] is {}, expected < 1.30",
-            i, ratio
+            i,
+            ratio
         );
     }
 
@@ -973,8 +1111,8 @@ fn test_batch_modelchain_bifacial_zero_means_no_gain() {
     let result_default = chain_default.run(&weather).unwrap();
 
     // Explicitly set bifaciality_factor = 0.0 via builder
-    let chain_zero = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_bifacial(0.0, 0.3);
+    let chain_zero =
+        batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_bifacial(0.0, 0.3);
     let result_zero = chain_zero.run(&weather).unwrap();
 
     // Should be exactly identical
@@ -1008,21 +1146,34 @@ fn test_all_new_features_combined() {
 
     // Use from_utc constructor (GHI-only, DNI/DHI zero to trigger auto-decomposition)
     let timestamps = vec![
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(14, 0, 0).unwrap(),
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(16, 0, 0).unwrap(),
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(18, 0, 0).unwrap(),
-        NaiveDate::from_ymd_opt(2020, 6, 15).unwrap().and_hms_opt(20, 0, 0).unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(14, 0, 0)
+            .unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(16, 0, 0)
+            .unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(18, 0, 0)
+            .unwrap(),
+        NaiveDate::from_ymd_opt(2020, 6, 15)
+            .unwrap()
+            .and_hms_opt(20, 0, 0)
+            .unwrap(),
     ];
 
     let weather = batch::WeatherSeries::from_utc(
         &timestamps,
         "US/Eastern",
-        vec![800.0, 600.0, 200.0, 0.0],   // GHI
-        vec![0.0, 0.0, 0.0, 0.0],         // DNI (zeros — auto-decompose)
-        vec![0.0, 0.0, 0.0, 0.0],         // DHI (zeros — auto-decompose)
-        vec![32.0, 30.0, 26.0, 22.0],     // temp_air
-        vec![2.0, 2.5, 3.0, 2.0],         // wind_speed
-    ).unwrap();
+        vec![800.0, 600.0, 200.0, 0.0], // GHI
+        vec![0.0, 0.0, 0.0, 0.0],       // DNI (zeros — auto-decompose)
+        vec![0.0, 0.0, 0.0, 0.0],       // DHI (zeros — auto-decompose)
+        vec![32.0, 30.0, 26.0, 22.0],   // temp_air
+        vec![2.0, 2.5, 3.0, 2.0],       // wind_speed
+    )
+    .unwrap();
 
     let result = chain.run(&weather).unwrap();
 
@@ -1045,9 +1196,8 @@ fn test_all_new_features_combined() {
     }
 
     // Verify solar_position_batch_utc works independently
-    let (zen, _az, elev) = batch::solar_position_batch_utc(
-        32.2, -110.9, 700.0, &timestamps,
-    ).unwrap();
+    let (zen, _az, elev) =
+        batch::solar_position_batch_utc(32.2, -110.9, 700.0, &timestamps).unwrap();
     assert_eq!(zen.len(), 4);
     assert_eq!(elev.len(), 4);
 }
@@ -1062,14 +1212,14 @@ fn test_auto_decomposition_nan_dni_dhi() {
     // With auto_decomposition enabled, NaN should be treated as "missing"
     // and trigger Erbs decomposition from GHI.
     let loc = tucson();
-    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_auto_decomposition(true);
+    let chain =
+        batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_auto_decomposition(true);
 
     let weather = batch::WeatherSeries {
         times: vec![summer_noon()],
         ghi: vec![900.0],
-        dni: vec![f64::NAN],  // Missing — should trigger decomposition
-        dhi: vec![f64::NAN],  // Missing — should trigger decomposition
+        dni: vec![f64::NAN], // Missing — should trigger decomposition
+        dhi: vec![f64::NAN], // Missing — should trigger decomposition
         temp_air: vec![32.0],
         wind_speed: vec![1.5],
         albedo: None,
@@ -1078,16 +1228,18 @@ fn test_auto_decomposition_nan_dni_dhi() {
     let result = chain.run(&weather).unwrap();
 
     // Should produce positive power (not NaN or zero)
-    assert!(result.ac_power[0] > 0.0,
+    assert!(
+        result.ac_power[0] > 0.0,
         "NaN DNI/DHI with auto-decomposition should produce power, got {}",
-        result.ac_power[0]);
-    assert!(!result.ac_power[0].is_nan(),
-        "AC power should not be NaN");
-    assert!(result.poa_global[0] > 0.0,
+        result.ac_power[0]
+    );
+    assert!(!result.ac_power[0].is_nan(), "AC power should not be NaN");
+    assert!(
+        result.poa_global[0] > 0.0,
         "POA should be positive after decomposition, got {}",
-        result.poa_global[0]);
-    assert!(!result.poa_global[0].is_nan(),
-        "POA should not be NaN");
+        result.poa_global[0]
+    );
+    assert!(!result.poa_global[0].is_nan(), "POA should not be NaN");
 }
 
 #[test]
@@ -1113,10 +1265,16 @@ fn test_auto_decomposition_nan_without_flag() {
     let poa = result.poa_global[0];
     let ac = result.ac_power[0];
     // Either NaN propagated or clamped to 0
-    assert!(poa.is_nan() || poa == 0.0,
-        "Without decomposition, NaN input should propagate or clamp, got poa={}", poa);
-    assert!(ac.is_nan() || ac == 0.0,
-        "Without decomposition, NaN input should propagate or clamp, got ac={}", ac);
+    assert!(
+        poa.is_nan() || poa == 0.0,
+        "Without decomposition, NaN input should propagate or clamp, got poa={}",
+        poa
+    );
+    assert!(
+        ac.is_nan() || ac == 0.0,
+        "Without decomposition, NaN input should propagate or clamp, got ac={}",
+        ac
+    );
 }
 
 #[test]
@@ -1124,8 +1282,8 @@ fn test_auto_decomposition_mixed_nan_and_valid() {
     // Some timesteps have valid DNI/DHI, some have NaN.
     // Only the NaN ones should be decomposed.
     let loc = tucson();
-    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_auto_decomposition(true);
+    let chain =
+        batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_auto_decomposition(true);
 
     let weather = batch::WeatherSeries {
         times: vec![
@@ -1134,8 +1292,8 @@ fn test_auto_decomposition_mixed_nan_and_valid() {
             Eastern.with_ymd_and_hms(2020, 6, 15, 14, 0, 0).unwrap(),
         ],
         ghi: vec![600.0, 900.0, 700.0],
-        dni: vec![500.0, f64::NAN, 600.0],  // Only index 1 is NaN
-        dhi: vec![100.0, f64::NAN, 100.0],  // Only index 1 is NaN
+        dni: vec![500.0, f64::NAN, 600.0], // Only index 1 is NaN
+        dhi: vec![100.0, f64::NAN, 100.0], // Only index 1 is NaN
         temp_air: vec![28.0, 32.0, 30.0],
         wind_speed: vec![2.0, 1.5, 2.5],
         albedo: None,
@@ -1145,8 +1303,12 @@ fn test_auto_decomposition_mixed_nan_and_valid() {
 
     // All three should produce valid, positive power
     for i in 0..3 {
-        assert!(result.ac_power[i] > 0.0 && !result.ac_power[i].is_nan(),
-            "ac_power[{}] should be positive and not NaN, got {}", i, result.ac_power[i]);
+        assert!(
+            result.ac_power[i] > 0.0 && !result.ac_power[i].is_nan(),
+            "ac_power[{}] should be positive and not NaN, got {}",
+            i,
+            result.ac_power[i]
+        );
     }
 }
 
@@ -1158,11 +1320,13 @@ fn test_auto_decomposition_mixed_nan_and_valid() {
 fn test_system_losses_clamped_above_one() {
     let loc = tucson();
     // Passing losses > 1.0 should be clamped to 1.0 (100% loss = zero power)
-    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_system_losses(1.5);
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_system_losses(1.5);
 
-    assert!((chain.system_losses - 1.0).abs() < 1e-10,
-        "system_losses should be clamped to 1.0, got {}", chain.system_losses);
+    assert!(
+        (chain.system_losses - 1.0).abs() < 1e-10,
+        "system_losses should be clamped to 1.0, got {}",
+        chain.system_losses
+    );
 
     let weather = batch::WeatherSeries {
         times: vec![summer_noon()],
@@ -1176,27 +1340,32 @@ fn test_system_losses_clamped_above_one() {
 
     let result = chain.run(&weather).unwrap();
     // 100% losses = zero DC = zero AC
-    assert!(result.ac_power[0].abs() < 1e-6,
-        "100% system losses should produce zero power, got {}", result.ac_power[0]);
+    assert!(
+        result.ac_power[0].abs() < 1e-6,
+        "100% system losses should produce zero power, got {}",
+        result.ac_power[0]
+    );
 }
 
 #[test]
 fn test_system_losses_clamped_below_zero() {
     let loc = tucson();
     // Passing negative losses should be clamped to 0.0
-    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_system_losses(-0.5);
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_system_losses(-0.5);
 
-    assert!((chain.system_losses - 0.0).abs() < 1e-10,
-        "system_losses should be clamped to 0.0, got {}", chain.system_losses);
+    assert!(
+        (chain.system_losses - 0.0).abs() < 1e-10,
+        "system_losses should be clamped to 0.0, got {}",
+        chain.system_losses
+    );
 }
 
 #[test]
 fn test_system_losses_nan_clamped() {
     let loc = tucson();
     // NaN losses should clamp (NaN.clamp returns NaN in Rust, so verify behavior)
-    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_system_losses(f64::NAN);
+    let chain =
+        batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_system_losses(f64::NAN);
 
     // NaN.clamp(0.0, 1.0) returns NaN in Rust — document this behavior
     // The builder should ideally handle this, but at minimum it shouldn't panic
@@ -1212,8 +1381,7 @@ fn test_bifacial_zero_poa_no_division_by_zero() {
     // When POA is very low (nighttime), bifacial gain formula divides by
     // poa_global. The guard `poa.poa_global > 10.0` should prevent this.
     let loc = tucson();
-    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_bifacial(0.8, 0.3);
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_bifacial(0.8, 0.3);
 
     let weather = batch::WeatherSeries {
         times: vec![
@@ -1234,22 +1402,30 @@ fn test_bifacial_zero_poa_no_division_by_zero() {
 
     // Neither should be NaN or Inf
     for i in 0..2 {
-        assert!(!result.ac_power[i].is_nan(),
-            "ac_power[{}] should not be NaN", i);
-        assert!(!result.ac_power[i].is_infinite(),
-            "ac_power[{}] should not be infinite", i);
+        assert!(
+            !result.ac_power[i].is_nan(),
+            "ac_power[{}] should not be NaN",
+            i
+        );
+        assert!(
+            !result.ac_power[i].is_infinite(),
+            "ac_power[{}] should not be infinite",
+            i
+        );
     }
     // Night should be zero
-    assert!(result.ac_power[0].abs() < 1e-6,
-        "Nighttime bifacial power should be 0, got {}", result.ac_power[0]);
+    assert!(
+        result.ac_power[0].abs() < 1e-6,
+        "Nighttime bifacial power should be 0, got {}",
+        result.ac_power[0]
+    );
 }
 
 #[test]
 fn test_bifacial_extreme_parameters() {
     // Extreme but technically valid bifacial parameters
     let loc = tucson();
-    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0)
-        .with_bifacial(1.0, 1.0); // Max bifaciality, perfect reflector
+    let chain = batch::BatchModelChain::pvwatts(loc, 30.0, 180.0, 5000.0).with_bifacial(1.0, 1.0); // Max bifaciality, perfect reflector
 
     let weather = batch::WeatherSeries {
         times: vec![summer_noon()],
@@ -1268,6 +1444,9 @@ fn test_bifacial_extreme_parameters() {
     assert!(!result.ac_power[0].is_infinite(), "Should not be infinite");
     assert!(result.ac_power[0] > 0.0, "Should produce positive power");
     // Rear gain is capped at 25%, so even extreme params shouldn't exceed ~1.25x
-    assert!(result.ac_power[0] <= 5000.0 * 1.3,
-        "Power {} should not wildly exceed capacity", result.ac_power[0]);
+    assert!(
+        result.ac_power[0] <= 5000.0 * 1.3,
+        "Power {} should not wildly exceed capacity",
+        result.ac_power[0]
+    );
 }

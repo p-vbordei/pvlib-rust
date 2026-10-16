@@ -3,3 +3,9 @@ pvlib-python-ref/
 firebase-debug.log
 .DS_Store
 clippy_output.txt
+
+node_modules/
+.wrangler/
+.dev.vars*
+dist/
+tmp/

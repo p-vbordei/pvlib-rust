@@ -1,3 +1,4 @@
+use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
@@ -6,7 +7,6 @@ use std::io::{BufRead, BufReader};
 use std::sync::OnceLock;
 #[cfg(feature = "pvgis")]
 use std::time::Duration;
-use serde_json::Value;
 
 // ---------------------------------------------------------------------------
 // Shared HTTP client
@@ -38,35 +38,43 @@ fn http_get_text(url: &str) -> Result<String, Box<dyn Error>> {
 
 /// Retrieve a database from the SAM (System Advisor Model) library.
 /// Modeled after `pvlib.pvsystem.retrieve_sam`.
-/// 
+///
 /// Supported databases:
 ///  - "CEC Inverters"
 ///  - "CEC Modules"
-/// 
+///
 /// Note: These files are downloaded from the NREL SAM GitHub repository.
-/// 
+///
 /// # Arguments
 /// * `name` - The name of the database to retrieve.
-/// 
+///
 /// # Returns
 /// A Vector of HashMaps, where each map corresponds to a row (usually an inverter or module)
 /// keyed by the column headers.
 #[cfg(feature = "pvgis")]
 pub fn retrieve_sam(name: &str) -> Result<Vec<HashMap<String, String>>, Box<dyn Error>> {
     let url = match name {
-        "CEC Inverters" | "cecinverter" => "https://raw.githubusercontent.com/NREL/SAM/patch/deploy/libraries/CEC%20Inverters.csv",
-        "CEC Modules" | "cecmod" => "https://raw.githubusercontent.com/NREL/SAM/patch/deploy/libraries/CEC%20Modules.csv",
-        _ => return Err(format!("Unknown SAM DB string. Please use 'CEC Inverters' or 'CEC Modules'. You provided: {}", name).into()),
+        "CEC Inverters" | "cecinverter" => {
+            "https://raw.githubusercontent.com/NREL/SAM/patch/deploy/libraries/CEC%20Inverters.csv"
+        }
+        "CEC Modules" | "cecmod" => {
+            "https://raw.githubusercontent.com/NREL/SAM/patch/deploy/libraries/CEC%20Modules.csv"
+        }
+        _ => return Err(format!(
+            "Unknown SAM DB string. Please use 'CEC Inverters' or 'CEC Modules'. You provided: {}",
+            name
+        )
+        .into()),
     };
 
     let response = http_get_text(url)?;
-    
+
     let mut reader = csv::ReaderBuilder::new()
         .flexible(true)
         .from_reader(response.as_bytes());
-        
+
     let headers = reader.headers()?.clone();
-    
+
     let mut records = Vec::new();
     for result in reader.records() {
         let record = result?;
@@ -81,7 +89,7 @@ pub fn retrieve_sam(name: &str) -> Result<Vec<HashMap<String, String>>, Box<dyn 
         // For simplicity, we just return all rows. The user can filter.
         records.push(map);
     }
-    
+
     Ok(records)
 }
 
@@ -206,7 +214,11 @@ pub fn get_pvgis_tmy(
 
     match outputformat {
         "json" => parse_pvgis_tmy_json(&response),
-        _ => Err(format!("Unsupported PVGIS TMY outputformat: '{}'. Use 'json'.", outputformat).into()),
+        _ => Err(format!(
+            "Unsupported PVGIS TMY outputformat: '{}'. Use 'json'.",
+            outputformat
+        )
+        .into()),
     }
 }
 
@@ -255,10 +267,7 @@ pub fn get_pvgis_hourly(
 /// Returns a vector of (azimuth, elevation) pairs where azimuth follows
 /// the pvlib convention (north=0, clockwise, south=180).
 #[cfg(feature = "pvgis")]
-pub fn get_pvgis_horizon(
-    latitude: f64,
-    longitude: f64,
-) -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
+pub fn get_pvgis_horizon(latitude: f64, longitude: f64) -> Result<Vec<(f64, f64)>, Box<dyn Error>> {
     let url = format!(
         "{}printhorizon?lat={}&lon={}&outputformat=json",
         PVGIS_BASE_URL, latitude, longitude,
@@ -283,16 +292,14 @@ pub fn parse_pvgis_tmy_json(json_str: &str) -> Result<WeatherData, Box<dyn Error
     let elevation = inputs["elevation"].as_f64();
 
     // Months selected
-    let months_selected = root["outputs"]["months_selected"]
-        .as_array()
-        .map(|arr| {
-            arr.iter()
-                .map(|m| MonthYear {
-                    month: m["month"].as_i64().unwrap_or(0) as i32,
-                    year: m["year"].as_i64().unwrap_or(0) as i32,
-                })
-                .collect()
-        });
+    let months_selected = root["outputs"]["months_selected"].as_array().map(|arr| {
+        arr.iter()
+            .map(|m| MonthYear {
+                month: m["month"].as_i64().unwrap_or(0) as i32,
+                year: m["year"].as_i64().unwrap_or(0) as i32,
+            })
+            .collect()
+    });
 
     // Hourly records
     let hourly = root["outputs"]["tmy_hourly"]
@@ -454,11 +461,18 @@ pub fn read_tmy3(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
     };
 
     // Second line: column headers
-    let header_line = lines.next().ok_or("TMY3 file missing column header line")??;
-    let headers: Vec<String> = header_line.split(',').map(|s| s.trim().to_string()).collect();
+    let header_line = lines
+        .next()
+        .ok_or("TMY3 file missing column header line")??;
+    let headers: Vec<String> = header_line
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
 
     let idx = |name: &str| -> Result<usize, Box<dyn Error>> {
-        headers.iter().position(|h| h == name)
+        headers
+            .iter()
+            .position(|h| h == name)
             .ok_or_else(|| format!("TMY3 column '{}' not found", name).into())
     };
     let i_date = idx("Date (MM/DD/YYYY)")?;
@@ -484,7 +498,10 @@ pub fn read_tmy3(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
         let fields: Vec<&str> = line.split(',').collect();
 
         let get_field = |i: usize| -> Result<&str, Box<dyn Error>> {
-            fields.get(i).copied().ok_or_else(|| format!("missing TMY3 field {}", i).into())
+            fields
+                .get(i)
+                .copied()
+                .ok_or_else(|| format!("missing TMY3 field {}", i).into())
         };
 
         // Parse date MM/DD/YYYY
@@ -510,8 +527,7 @@ pub fn read_tmy3(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
             get_field(i)?.trim().parse::<f64>().map_err(|e| e.into())
         };
 
-        let time_str = format!("{:04}{:02}{:02}:{:02}{:02}",
-            year, month, day, hour, 0);
+        let time_str = format!("{:04}{:02}{:02}:{:02}{:02}", year, month, day, hour, 0);
 
         records.push(WeatherRecord {
             time: time_str,
@@ -569,7 +585,9 @@ pub fn read_epw(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
 
     // Skip remaining 7 header lines
     for _ in 0..7 {
-        lines.next().ok_or("EPW file has fewer than 8 header lines")??;
+        lines
+            .next()
+            .ok_or("EPW file has fewer than 8 header lines")??;
     }
 
     // Data columns (0-indexed):
@@ -590,15 +608,17 @@ pub fn read_epw(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
         }
 
         let get_field = |i: usize| -> Result<&str, Box<dyn Error>> {
-            fields.get(i).copied().ok_or_else(|| format!("missing EPW field {}", i).into())
+            fields
+                .get(i)
+                .copied()
+                .ok_or_else(|| format!("missing EPW field {}", i).into())
         };
         let parse_f64 = |i: usize| -> Result<f64, Box<dyn Error>> {
             get_field(i)?.trim().parse::<f64>().map_err(|e| e.into())
         };
 
-        let try_parse_f64 = |i: usize| -> Option<f64> {
-            fields.get(i).and_then(|s| s.trim().parse::<f64>().ok())
-        };
+        let try_parse_f64 =
+            |i: usize| -> Option<f64> { fields.get(i).and_then(|s| s.trim().parse::<f64>().ok()) };
 
         // EPW hour is 1-24; convert to 0-23
         let raw_hour: u32 = get_field(3)?.trim().parse()?;
@@ -607,8 +627,7 @@ pub fn read_epw(filepath: &str) -> Result<WeatherData, Box<dyn Error>> {
         let month: u32 = get_field(1)?.trim().parse()?;
         let day: u32 = get_field(2)?.trim().parse()?;
 
-        let time_str = format!("{:04}{:02}{:02}:{:02}{:02}",
-            year, month, day, hour, 0);
+        let time_str = format!("{:04}{:02}{:02}:{:02}{:02}", year, month, day, hour, 0);
 
         // EPW standard columns (0-indexed):
         //  0-5: year, month, day, hour, minute, data_source

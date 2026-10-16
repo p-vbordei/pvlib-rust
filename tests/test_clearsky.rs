@@ -51,8 +51,16 @@ fn test_bird_default_wrapper() {
 fn test_bird_zenith_zero() {
     // Sun directly overhead
     let result = bird(0.0, 1.0, 0.1, 0.05, 1.0, 0.3, 101325.0, 1364.0, 0.85, 0.2);
-    assert!(result.ghi > 900.0, "GHI at zenith=0 should be high, got {}", result.ghi);
-    assert!(result.dni > 900.0, "DNI at zenith=0 should be high, got {}", result.dni);
+    assert!(
+        result.ghi > 900.0,
+        "GHI at zenith=0 should be high, got {}",
+        result.ghi
+    );
+    assert!(
+        result.dni > 900.0,
+        "DNI at zenith=0 should be high, got {}",
+        result.dni
+    );
     // At zenith=0, direct_horizontal should equal DNI
     assert!(
         (result.direct_horizontal - result.dni).abs() < 0.1,
@@ -63,19 +71,31 @@ fn test_bird_zenith_zero() {
 #[test]
 fn test_lookup_linke_turbidity_polar() {
     let lt = lookup_linke_turbidity(70.0, 25.0, 1); // winter in Arctic
-    assert!((1.5..=3.0).contains(&lt), "Polar winter turbidity expected 2.0, got {}", lt);
+    assert!(
+        (1.5..=3.0).contains(&lt),
+        "Polar winter turbidity expected 2.0, got {}",
+        lt
+    );
 }
 
 #[test]
 fn test_lookup_linke_turbidity_tropical() {
     let lt = lookup_linke_turbidity(5.0, 30.0, 7); // tropical summer
-    assert!((3.5..=5.5).contains(&lt), "Tropical summer turbidity expected ~4.5, got {}", lt);
+    assert!(
+        (3.5..=5.5).contains(&lt),
+        "Tropical summer turbidity expected ~4.5, got {}",
+        lt
+    );
 }
 
 #[test]
 fn test_lookup_linke_turbidity_desert() {
     let lt = lookup_linke_turbidity(28.0, 30.0, 7); // Sahara summer
-    assert!((3.0..=5.0).contains(&lt), "Desert turbidity expected ~3.5-4.0, got {}", lt);
+    assert!(
+        (3.0..=5.0).contains(&lt),
+        "Desert turbidity expected ~3.5-4.0, got {}",
+        lt
+    );
 }
 
 #[test]
@@ -102,20 +122,29 @@ fn test_linke_turbidity_monthly_seasonal_shape() {
     // All months in the documented 2.6-3.8 band.
     for m in 1..=12 {
         let tl = linke_turbidity_monthly(m);
-        assert!((2.6..=3.8).contains(&tl), "TL for month {} out of band: {}", m, tl);
+        assert!(
+            (2.6..=3.8).contains(&tl),
+            "TL for month {} out of band: {}",
+            m,
+            tl
+        );
     }
 
     // Monotonic rise Jan->Jun and fall Jul->Dec (smooth seasonal curve).
     for m in 1..6 {
         assert!(
             linke_turbidity_monthly(m) <= linke_turbidity_monthly(m + 1),
-            "TL should not decrease from month {} to {}", m, m + 1
+            "TL should not decrease from month {} to {}",
+            m,
+            m + 1
         );
     }
     for m in 7..12 {
         assert!(
             linke_turbidity_monthly(m) >= linke_turbidity_monthly(m + 1),
-            "TL should not increase from month {} to {}", m, m + 1
+            "TL should not increase from month {} to {}",
+            m,
+            m + 1
         );
     }
 }

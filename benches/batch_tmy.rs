@@ -6,10 +6,10 @@
 
 use chrono::{Duration, TimeZone};
 use chrono_tz::US::Mountain;
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
+use pvlib::Location;
 use pvlib::batch::{BatchModelChain, WeatherSeries};
 use pvlib::irradiance::DiffuseModel;
-use pvlib::Location;
 
 fn build_weather(n_hours: usize) -> WeatherSeries {
     let start = Mountain.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
@@ -39,8 +39,7 @@ fn build_weather(n_hours: usize) -> WeatherSeries {
 }
 
 fn bench_batch_tmy(c: &mut Criterion) {
-    let location =
-        Location::try_new(39.74, -105.18, Mountain, 1830.0, "Golden, CO").unwrap();
+    let location = Location::try_new(39.74, -105.18, Mountain, 1830.0, "Golden, CO").unwrap();
     let mc = BatchModelChain::pvwatts(location, 30.0, 180.0, 5_000.0)
         .with_gamma_pdc(-0.004)
         .with_inverter(5_000.0, 0.96)

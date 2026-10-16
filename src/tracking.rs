@@ -32,8 +32,8 @@ pub fn singleaxis(
     gcr: f64,
     cross_axis_tilt: f64,
 ) -> (f64, f64, f64) {
-    use crate::shading::projected_solar_zenith_angle;
     use crate::irradiance::aoi as irr_aoi;
+    use crate::shading::projected_solar_zenith_angle;
 
     // Sun below horizon -- return NaN (matching pvlib-python)
     if solar_zenith >= 90.0 {
@@ -42,12 +42,8 @@ pub fn singleaxis(
 
     // Ideal rotation angle via projected solar zenith angle
     // (Anderson & Mikofski 2020, handles arbitrary axis_tilt)
-    let mut tracker_theta = projected_solar_zenith_angle(
-        solar_zenith,
-        solar_azimuth,
-        axis_tilt,
-        axis_azimuth,
-    );
+    let mut tracker_theta =
+        projected_solar_zenith_angle(solar_zenith, solar_azimuth, axis_tilt, axis_azimuth);
 
     // Backtracking — slope-aware method (Anderson & Mikofski 2020, Eq. 14)
     if backtrack && gcr > 0.0 {
@@ -82,7 +78,7 @@ pub fn calc_axis_tilt(slope_azimuth: f64, slope_tilt: f64, axis_azimuth: f64) ->
     let sa_rad = slope_azimuth.to_radians();
     let st_rad = slope_tilt.to_radians();
     let aa_rad = axis_azimuth.to_radians();
-    
+
     let axis_tilt_rad = (st_rad.tan() * (aa_rad - sa_rad).cos()).atan();
     axis_tilt_rad.to_degrees()
 }
@@ -101,7 +97,11 @@ pub fn calc_axis_tilt(slope_azimuth: f64, slope_tilt: f64, axis_azimuth: f64) ->
 /// # References
 /// Marion, W.F. and Dobos, A.P., 2013, "Rotation Angle for the Optimum Tracking
 /// of One-Axis Trackers", NREL/TP-6A20-58891.
-pub fn calc_surface_orientation(tracker_theta: f64, axis_tilt: f64, axis_azimuth: f64) -> (f64, f64) {
+pub fn calc_surface_orientation(
+    tracker_theta: f64,
+    axis_tilt: f64,
+    axis_azimuth: f64,
+) -> (f64, f64) {
     let tt_rad = tracker_theta.to_radians();
     let at_rad = axis_tilt.to_radians();
 
@@ -132,13 +132,17 @@ pub fn calc_surface_orientation(tracker_theta: f64, axis_tilt: f64, axis_azimuth
 }
 
 /// Calculate cross-axis tilt.
-pub fn calc_cross_axis_tilt(slope_azimuth: f64, slope_tilt: f64, axis_azimuth: f64, axis_tilt: f64) -> f64 {
+pub fn calc_cross_axis_tilt(
+    slope_azimuth: f64,
+    slope_tilt: f64,
+    axis_azimuth: f64,
+    axis_tilt: f64,
+) -> f64 {
     let sa_rad = slope_azimuth.to_radians();
     let st_rad = slope_tilt.to_radians();
     let aa_rad = axis_azimuth.to_radians();
     let at_rad = axis_tilt.to_radians();
-    
+
     let cross_axis_tilt_rad = (st_rad.tan() * (aa_rad - sa_rad).sin() * at_rad.cos()).atan();
     cross_axis_tilt_rad.to_degrees()
 }
-

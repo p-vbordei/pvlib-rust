@@ -29,7 +29,10 @@ fn chisineu() -> Location {
 }
 
 fn chisineu_system() -> PVSystem {
-    let mount = Box::new(FixedMount { surface_tilt: 25.0, surface_azimuth: 180.0 });
+    let mount = Box::new(FixedMount {
+        surface_tilt: 25.0,
+        surface_azimuth: 180.0,
+    });
     let array = Array {
         mount,
         nameplate_dc: DC_NAMEPLATE,
@@ -42,7 +45,14 @@ fn chisineu_system() -> PVSystem {
 }
 
 fn chisineu_modelchain(inverter_pac0: f64) -> ModelChain {
-    ModelChain::new(chisineu_system(), chisineu(), 25.0, 180.0, inverter_pac0, ETA_INV_NOM)
+    ModelChain::new(
+        chisineu_system(),
+        chisineu(),
+        25.0,
+        180.0,
+        inverter_pac0,
+        ETA_INV_NOM,
+    )
 }
 
 /// Strong-irradiance input that drives DC power well above the inverter
@@ -60,7 +70,9 @@ fn strong_sun_input() -> EffectiveIrradianceInput {
 #[test]
 fn test_modelchain_clips_at_inverter_ac_capacity() {
     let mc = chisineu_modelchain(INVERTER_PDC0);
-    let result = mc.run_model_from_effective_irradiance(&strong_sun_input()).unwrap();
+    let result = mc
+        .run_model_from_effective_irradiance(&strong_sun_input())
+        .unwrap();
 
     // DC power is far above the inverter rating, so the inverter must clip.
     assert!(
@@ -90,7 +102,9 @@ fn test_modelchain_falls_back_to_dc_nameplate_when_inverter_unset() {
     // inverter_pac0 <= 0.0 means "not set": pre-fix behavior is preserved,
     // pdc0 falls back to the DC nameplate total.
     let mc = chisineu_modelchain(0.0);
-    let result = mc.run_model_from_effective_irradiance(&strong_sun_input()).unwrap();
+    let result = mc
+        .run_model_from_effective_irradiance(&strong_sun_input())
+        .unwrap();
 
     let expected = inverter::pvwatts_ac(result.dc_power, DC_NAMEPLATE, ETA_INV_NOM, 0.9637);
     assert!(
@@ -154,8 +168,7 @@ fn test_batch_default_inverter_preserves_dc_nameplate_behavior() {
         .with_gamma_pdc(-0.004);
 
     let result = chain.run(&strong_sun_weather()).unwrap();
-    let expected =
-        inverter::pvwatts_ac(result.dc_power[0], DC_NAMEPLATE, 0.96, 0.9637);
+    let expected = inverter::pvwatts_ac(result.dc_power[0], DC_NAMEPLATE, 0.96, 0.9637);
     assert!(
         (result.ac_power[0] - expected).abs() < 1e-6,
         "default batch ac_power {} should equal pvwatts_ac with DC nameplate pdc0 = {}",
@@ -169,7 +182,9 @@ fn test_modelchain_and_batch_agree_on_clipped_output() {
     // Both pipelines, given DC power above the inverter rating, must clip at
     // the identical ceiling pac0 = eta_inv_nom * inverter_pdc0.
     let mc = chisineu_modelchain(INVERTER_PDC0);
-    let mc_result = mc.run_model_from_effective_irradiance(&strong_sun_input()).unwrap();
+    let mc_result = mc
+        .run_model_from_effective_irradiance(&strong_sun_input())
+        .unwrap();
 
     let chain = batch::BatchModelChain::pvwatts(chisineu(), 25.0, 180.0, DC_NAMEPLATE)
         .with_gamma_pdc(-0.004)

@@ -1,6 +1,6 @@
+use pvlib::iotools::{read_epw, read_tmy3};
 use std::io::Write;
 use tempfile::NamedTempFile;
-use pvlib::iotools::{read_tmy3, read_epw};
 
 #[test]
 fn test_read_tmy3_basic() {

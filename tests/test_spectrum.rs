@@ -61,7 +61,11 @@ fn test_caballero_with_builtin_coeffs() {
     let f = spectral_factor_caballero(1.4164, 1.5, 0.084, coeffs);
     // At reference conditions (pw_ref, aod_ref), f_aod and f_pw should be ~0
     // so result should be ~f_am at AM=1.5
-    assert!(f > 0.8 && f < 1.2, "Should be near 1.0 at reference conditions, got {}", f);
+    assert!(
+        f > 0.8 && f < 1.2,
+        "Should be near 1.0 at reference conditions, got {}",
+        f
+    );
 }
 
 #[test]

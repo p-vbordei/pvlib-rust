@@ -11,9 +11,7 @@ mod golden;
 use pvlib::location::Location;
 use pvlib::solarposition::{get_solarposition, get_solarposition_apparent};
 
-fn locations_by_slug(
-    dir: &std::path::Path,
-) -> std::collections::HashMap<String, Location> {
+fn locations_by_slug(dir: &std::path::Path) -> std::collections::HashMap<String, Location> {
     golden::load_locations(dir)
         .into_iter()
         .map(|(slug, m)| {
@@ -56,7 +54,10 @@ fn true_position_matches_pvlib() {
         let slug = row.slug.clone();
         let ts = row.timestamp_utc.clone();
         tracker.record(&format!("{slug}|zenith"), zen_err, || {
-            format!("slug={slug} ts={ts} col=zenith got={:.6} want={:.6}", sp.zenith, row.zenith)
+            format!(
+                "slug={slug} ts={ts} col=zenith got={:.6} want={:.6}",
+                sp.zenith, row.zenith
+            )
         });
         tracker.record(&format!("{slug}|elevation"), elev_err, || {
             format!(
@@ -65,7 +66,10 @@ fn true_position_matches_pvlib() {
             )
         });
         tracker.record(&format!("{slug}|azimuth"), az_err, || {
-            format!("slug={slug} ts={ts} col=azimuth got={:.6} want={:.6}", sp.azimuth, row.azimuth)
+            format!(
+                "slug={slug} ts={ts} col=azimuth got={:.6} want={:.6}",
+                sp.azimuth, row.azimuth
+            )
         });
 
         if is_day {
@@ -79,8 +83,12 @@ fn true_position_matches_pvlib() {
     }
 
     day.report("golden_solarposition: TRUE position, daytime (apparent_elevation > 0)");
-    night.report("golden_solarposition: TRUE position, nighttime (informational only, not asserted)");
-    overall.report("golden_solarposition: TRUE position, per-row combined max-component error, daytime");
+    night.report(
+        "golden_solarposition: TRUE position, nighttime (informational only, not asserted)",
+    );
+    overall.report(
+        "golden_solarposition: TRUE position, per-row combined max-component error, daytime",
+    );
 
     let max_day = day.global_max();
     assert!(
@@ -127,7 +135,8 @@ fn apparent_position_matches_pvlib() {
         let t = golden::parse_ts_z_tz(&row.timestamp_utc);
         // None, None -> pvlib spa_python defaults (101325 Pa, 12 C), matching
         // how generate.py called solarposition.spa_python(times, lat, lon, altitude=alt).
-        let sp = get_solarposition_apparent(loc, t, None, None).expect("get_solarposition_apparent");
+        let sp =
+            get_solarposition_apparent(loc, t, None, None).expect("get_solarposition_apparent");
 
         let zen_err = (sp.apparent_zenith - row.apparent_zenith).abs();
         let elev_err = (sp.apparent_elevation - row.apparent_elevation).abs();
@@ -158,8 +167,12 @@ fn apparent_position_matches_pvlib() {
     }
 
     day.report("golden_solarposition: APPARENT position, daytime (apparent_elevation > 0)");
-    night.report("golden_solarposition: APPARENT position, nighttime (informational only, not asserted)");
-    overall.report("golden_solarposition: APPARENT position, per-row combined max-component error, daytime");
+    night.report(
+        "golden_solarposition: APPARENT position, nighttime (informational only, not asserted)",
+    );
+    overall.report(
+        "golden_solarposition: APPARENT position, per-row combined max-component error, daytime",
+    );
 
     let max_day = day.global_max();
     assert!(
@@ -204,7 +217,10 @@ fn azimuth_zero_point_matches_pvlib_north_convention() {
             .or_insert(row);
     }
 
-    assert!(!best_per_slug.is_empty(), "no rows read from solarposition.csv.gz");
+    assert!(
+        !best_per_slug.is_empty(),
+        "no rows read from solarposition.csv.gz"
+    );
     let mut slugs: Vec<&String> = best_per_slug.keys().collect();
     slugs.sort();
     for slug in slugs {

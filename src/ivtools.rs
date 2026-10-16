@@ -128,12 +128,7 @@ pub fn fit_sandia_simple(
 }
 
 /// Linear fit on the low-voltage region of the IV curve.
-fn sandia_beta0_beta1(
-    v: &[f64],
-    i: &[f64],
-    vlim: f64,
-    v_oc: f64,
-) -> Result<(f64, f64), String> {
+fn sandia_beta0_beta1(v: &[f64], i: &[f64], vlim: f64, v_oc: f64) -> Result<(f64, f64), String> {
     let threshold = vlim * v_oc;
     // Find first index where v >= threshold
     let first_idx = v.iter().position(|&x| x >= threshold).unwrap_or(3).max(3);
@@ -170,7 +165,9 @@ fn sandia_beta3_beta4(
     }
 
     if xv.len() < 3 {
-        return Err("Parameter extraction failed: insufficient points in exponential region".into());
+        return Err(
+            "Parameter extraction failed: insufficient points in exponential region".into(),
+        );
     }
 
     // Least-squares: yv = xv * [beta2, beta3, beta4]^T
@@ -649,7 +646,11 @@ mod tests {
         let i_sc = current[0];
 
         let result = fit_sandia_simple(&voltage, &current, Some(v_oc), Some(i_sc), None, 0.2, 0.1);
-        assert!(result.is_ok(), "fit_sandia_simple failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "fit_sandia_simple failed: {:?}",
+            result.err()
+        );
         let r = result.unwrap();
 
         // Check recovered parameters are within reasonable tolerance
@@ -692,21 +693,41 @@ mod tests {
         let r = result.unwrap();
 
         // Sanity checks on fitted parameters
-        assert!(r.photocurrent > 0.0, "IL should be positive: {}", r.photocurrent);
+        assert!(
+            r.photocurrent > 0.0,
+            "IL should be positive: {}",
+            r.photocurrent
+        );
         assert!(
             (r.photocurrent - i_sc).abs() < 1.0,
             "IL should be close to Isc: {}",
             r.photocurrent
         );
-        assert!(r.saturation_current > 0.0, "I0 should be positive: {}", r.saturation_current);
+        assert!(
+            r.saturation_current > 0.0,
+            "I0 should be positive: {}",
+            r.saturation_current
+        );
         assert!(
             r.saturation_current < 1e-5,
             "I0 should be very small: {}",
             r.saturation_current
         );
-        assert!(r.resistance_series > 0.0, "Rs should be positive: {}", r.resistance_series);
-        assert!(r.resistance_series < 5.0, "Rs should be reasonable: {}", r.resistance_series);
-        assert!(r.resistance_shunt > 10.0, "Rsh should be large: {}", r.resistance_shunt);
+        assert!(
+            r.resistance_series > 0.0,
+            "Rs should be positive: {}",
+            r.resistance_series
+        );
+        assert!(
+            r.resistance_series < 5.0,
+            "Rs should be reasonable: {}",
+            r.resistance_series
+        );
+        assert!(
+            r.resistance_shunt > 10.0,
+            "Rsh should be large: {}",
+            r.resistance_shunt
+        );
         assert!(r.n_ns_vth > 0.0, "a_ref should be positive: {}", r.n_ns_vth);
     }
 

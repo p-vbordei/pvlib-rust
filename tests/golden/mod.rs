@@ -94,8 +94,7 @@ pub fn locations_json_path(fixture_dir: &Path) -> PathBuf {
 /// ```
 /// so `cargo test` stays green (with a visible SKIP note) for anyone who
 /// hasn't fetched the solar-engine fixtures.
-pub const SKIP_MESSAGE: &str =
-    "SKIP: PVLIB_GOLDEN_DIR is not set; skipping Gate-G1 golden parity test. \
+pub const SKIP_MESSAGE: &str = "SKIP: PVLIB_GOLDEN_DIR is not set; skipping Gate-G1 golden parity test. \
      Set it to solar-engine/tools/py-golden/fixtures (subset) or \
      .../fixtures-full (1-year grid) to run this test.";
 
@@ -115,10 +114,10 @@ pub struct LocationMeta {
 
 pub fn load_locations(fixture_dir: &Path) -> HashMap<String, LocationMeta> {
     let path = locations_json_path(fixture_dir);
-    let data = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {}", path.display(), e));
-    let list: Vec<LocationMeta> = serde_json::from_str(&data)
-        .unwrap_or_else(|e| panic!("parse {}: {}", path.display(), e));
+    let data =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {}", path.display(), e));
+    let list: Vec<LocationMeta> =
+        serde_json::from_str(&data).unwrap_or_else(|e| panic!("parse {}: {}", path.display(), e));
     list.into_iter().map(|l| (l.slug.clone(), l)).collect()
 }
 
@@ -131,8 +130,7 @@ pub fn load_locations(fixture_dir: &Path) -> HashMap<String, LocationMeta> {
 /// grid: clearsky/decomposition fixtures run to 2.5M rows.
 pub fn open_csv_gz(dir: &Path, name: &str) -> csv::Reader<GzDecoder<File>> {
     let path = dir.join(name);
-    let file =
-        File::open(&path).unwrap_or_else(|e| panic!("open {}: {}", path.display(), e));
+    let file = File::open(&path).unwrap_or_else(|e| panic!("open {}: {}", path.display(), e));
     csv::Reader::from_reader(GzDecoder::new(file))
 }
 
@@ -442,7 +440,6 @@ pub fn lookup_angles<'a>(
     slug: &str,
     timestamp_utc: &str,
 ) -> &'a SolarAngles {
-    map.get(&join_key(slug, timestamp_utc)).unwrap_or_else(|| {
-        panic!("no solarposition join row for slug={slug} ts={timestamp_utc}")
-    })
+    map.get(&join_key(slug, timestamp_utc))
+        .unwrap_or_else(|| panic!("no solarposition join row for slug={slug} ts={timestamp_utc}"))
 }

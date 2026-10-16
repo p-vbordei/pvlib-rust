@@ -1,5 +1,5 @@
 /// Sandia Array Performance Model (SAPM) for cell and module temperature.
-/// 
+///
 /// # Arguments
 /// * `poa_global` - Total incident irradiance on the module in W/m^2.
 /// * `temp_air` - Ambient air temperature in Celsius.
@@ -8,23 +8,31 @@
 /// * `b` - SAPM parameter `b` (empirical).
 /// * `delta_t` - SAPM parameter `delta_t` (temperature difference between cell and module back surface).
 /// * `irrad_ref` - Reference irradiance, typically 1000.0 W/m^2.
-/// 
+///
 /// # Returns
 /// A tuple of `(temp_cell, temp_module)` in Celsius.
 #[inline]
-pub fn sapm_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, a: f64, b: f64, delta_t: f64, irrad_ref: f64) -> (f64, f64) {
+pub fn sapm_cell_temperature(
+    poa_global: f64,
+    temp_air: f64,
+    wind_speed: f64,
+    a: f64,
+    b: f64,
+    delta_t: f64,
+    irrad_ref: f64,
+) -> (f64, f64) {
     if poa_global <= 0.0 {
         return (temp_air, temp_air);
     }
-    
+
     let temp_module = temp_air + poa_global * (a + b * wind_speed).exp();
     let temp_cell = temp_module + (poa_global / irrad_ref) * delta_t;
-    
+
     (temp_cell, temp_module)
 }
 
 /// PVsyst cell temperature model.
-/// 
+///
 /// # Arguments
 /// * `poa_global` - Total incident irradiance on the module in W/m^2.
 /// * `temp_air` - Ambient air temperature in Celsius.
@@ -33,11 +41,19 @@ pub fn sapm_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, a:
 /// * `u_v` - Convective heat transfer component (W/(m^3 s K)).
 /// * `module_efficiency` - Module efficiency as a decimal (e.g. 0.15 for 15%).
 /// * `alpha_absorption` - Absorption coefficient (e.g., 0.9).
-/// 
+///
 /// # Returns
 /// Cell temperature in Celsius.
 #[inline]
-pub fn pvsyst_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, u_c: f64, u_v: f64, module_efficiency: f64, alpha_absorption: f64) -> f64 {
+pub fn pvsyst_cell_temperature(
+    poa_global: f64,
+    temp_air: f64,
+    wind_speed: f64,
+    u_c: f64,
+    u_v: f64,
+    module_efficiency: f64,
+    alpha_absorption: f64,
+) -> f64 {
     if poa_global <= 0.0 {
         return temp_air;
     }
@@ -47,11 +63,11 @@ pub fn pvsyst_cell_temperature(poa_global: f64, temp_air: f64, wind_speed: f64, 
 
 /// Faiman (2008) cell temperature model.
 /// `T_cell = T_ambient + POA / (U0 + U1 * wind_speed)`
-/// 
+///
 /// # References
-/// Faiman, D., 2008, "Assessing the outdoor operating temperature of photovoltaic modules," 
+/// Faiman, D., 2008, "Assessing the outdoor operating temperature of photovoltaic modules,"
 /// Progress in Photovoltaics 16(4), pp. 307-315.
-/// 
+///
 /// # Arguments
 /// * `poa_global` - Total incident irradiance on the module in W/m^2.
 /// * `temp_air` - Ambient air temperature in Celsius.
@@ -68,15 +84,17 @@ pub fn faiman(poa_global: f64, temp_air: f64, wind_speed: f64, u0: f64, u1: f64)
 }
 
 /// Fuentes (1987) module temperature model.
-/// 
+///
 /// Accounts for thermal capacitance and inertia of PV modules.
-/// 
+///
 /// # References
 /// Fuentes, M.K., 1987. "A simplified thermal model for flat-plate photovoltaic arrays".
 #[inline]
 pub fn fuentes(poa_global: f64, temp_air: f64, wind_speed: f64, inoct: f64) -> f64 {
     // Simplified equilibrium approximation (actual is differential eq over time)
-    if poa_global <= 0.0 { return temp_air; }
+    if poa_global <= 0.0 {
+        return temp_air;
+    }
     let h = 1.2 + 0.8 * wind_speed; // rough convective cooling
     temp_air + poa_global * (inoct - 20.0) / (800.0 * h)
 }
@@ -137,7 +155,12 @@ pub fn sapm_module_default(poa_global: f64, temp_air: f64, wind_speed: f64) -> f
 /// # References
 /// King, D. et al, 2004, "Sandia Photovoltaic Array Performance Model", SAND Report 3535.
 #[inline]
-pub fn sapm_cell_from_module(module_temperature: f64, poa_global: f64, delta_t: f64, irrad_ref: f64) -> f64 {
+pub fn sapm_cell_from_module(
+    module_temperature: f64,
+    poa_global: f64,
+    delta_t: f64,
+    irrad_ref: f64,
+) -> f64 {
     module_temperature + poa_global / irrad_ref * delta_t
 }
 
@@ -227,7 +250,16 @@ pub fn noct_sam_default(
     noct: f64,
     module_efficiency: f64,
 ) -> f64 {
-    noct_sam(poa_global, temp_air, wind_speed, noct, module_efficiency, 0.9, 1, 4.0)
+    noct_sam(
+        poa_global,
+        temp_air,
+        wind_speed,
+        noct,
+        module_efficiency,
+        0.9,
+        1,
+        4.0,
+    )
 }
 
 /// Generic linear cell temperature model.
@@ -269,4 +301,3 @@ pub fn generic_linear(
 pub fn generic_linear_default(poa_global: f64, temp_air: f64, wind_speed: f64) -> f64 {
     generic_linear(poa_global, temp_air, wind_speed, 29.0, 0.0, 0.15, 0.9)
 }
-

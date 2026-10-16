@@ -27,13 +27,21 @@ fn test_fully_covered_at_threshold() {
 #[test]
 fn test_coverage_nrel_new_snowfall() {
     let cov = coverage_nrel(2.0, 100.0, -5.0, 30.0, 0.5, 1.0, 1.0, -80.0, 0.197);
-    assert!((cov - 1.0).abs() < 1e-10, "Should be fully covered, got {}", cov);
+    assert!(
+        (cov - 1.0).abs() < 1e-10,
+        "Should be fully covered, got {}",
+        cov
+    );
 }
 
 #[test]
 fn test_coverage_nrel_sliding() {
     let cov = coverage_nrel(0.0, 200.0, 5.0, 30.0, 0.8, 1.0, 1.0, -80.0, 0.197);
-    assert!(cov < 0.8, "Coverage should decrease from sliding, got {}", cov);
+    assert!(
+        cov < 0.8,
+        "Coverage should decrease from sliding, got {}",
+        cov
+    );
     assert!(cov >= 0.0, "Coverage should not be negative, got {}", cov);
 }
 
@@ -50,7 +58,11 @@ fn test_coverage_nrel_no_sliding_cold() {
 #[test]
 fn test_coverage_nrel_clamps_to_zero() {
     let cov = coverage_nrel(0.0, 200.0, 5.0, 90.0, 0.01, 1.0, 1.0, -80.0, 10.0);
-    assert!((cov - 0.0).abs() < 1e-10, "Coverage should clamp to 0, got {}", cov);
+    assert!(
+        (cov - 0.0).abs() < 1e-10,
+        "Coverage should clamp to 0, got {}",
+        cov
+    );
 }
 
 // --- dc_loss_nrel ---
@@ -74,7 +86,10 @@ fn test_dc_loss_partial_coverage() {
 #[test]
 fn test_dc_loss_single_string() {
     let loss = dc_loss_nrel(0.01, 1);
-    assert!((loss - 1.0).abs() < 1e-10, "Single string: any coverage -> full loss");
+    assert!(
+        (loss - 1.0).abs() < 1e-10,
+        "Single string: any coverage -> full loss"
+    );
 }
 
 #[test]

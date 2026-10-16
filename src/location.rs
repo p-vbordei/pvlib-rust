@@ -80,7 +80,10 @@ impl Location {
     /// Calculate the solar position for this location at the given time.
     ///
     /// Convenience wrapper around `solarposition::get_solarposition`.
-    pub fn get_solarposition(&self, time: DateTime<Tz>) -> Result<SolarPosition, solarposition::SpaError> {
+    pub fn get_solarposition(
+        &self,
+        time: DateTime<Tz>,
+    ) -> Result<SolarPosition, solarposition::SpaError> {
         solarposition::get_solarposition(self, time)
     }
 
@@ -95,30 +98,56 @@ impl Location {
     pub fn get_clearsky(&self, time: DateTime<Tz>, model: &str) -> clearsky::ClearSkyIrradiance {
         let solar_pos = match self.get_solarposition(time) {
             Ok(sp) => sp,
-            Err(_) => return clearsky::ClearSkyIrradiance { ghi: 0.0, dni: 0.0, dhi: 0.0 },
+            Err(_) => {
+                return clearsky::ClearSkyIrradiance {
+                    ghi: 0.0,
+                    dni: 0.0,
+                    dhi: 0.0,
+                };
+            }
         };
 
         match model {
             "haurwitz" => {
                 let ghi = clearsky::haurwitz(solar_pos.zenith);
-                clearsky::ClearSkyIrradiance { ghi, dni: 0.0, dhi: 0.0 }
+                clearsky::ClearSkyIrradiance {
+                    ghi,
+                    dni: 0.0,
+                    dhi: 0.0,
+                }
             }
             "simplified_solis" => {
                 let apparent_elevation = 90.0 - solar_pos.zenith;
-                clearsky::simplified_solis(apparent_elevation, 0.1, 1.0, atmosphere::alt2pres(self.altitude))
+                clearsky::simplified_solis(
+                    apparent_elevation,
+                    0.1,
+                    1.0,
+                    atmosphere::alt2pres(self.altitude),
+                )
             }
             _ => {
                 // Default to ineichen
                 let (_am_rel, am_abs) = self.get_airmass(time);
                 if am_abs.is_nan() || am_abs <= 0.0 {
-                    return clearsky::ClearSkyIrradiance { ghi: 0.0, dni: 0.0, dhi: 0.0 };
+                    return clearsky::ClearSkyIrradiance {
+                        ghi: 0.0,
+                        dni: 0.0,
+                        dhi: 0.0,
+                    };
                 }
                 let month = {
                     use chrono::Datelike;
                     time.month()
                 };
-                let linke_turbidity = clearsky::lookup_linke_turbidity(self.latitude, self.longitude, month);
-                clearsky::ineichen(solar_pos.zenith, am_abs, linke_turbidity, self.altitude, 1364.0)
+                let linke_turbidity =
+                    clearsky::lookup_linke_turbidity(self.latitude, self.longitude, month);
+                clearsky::ineichen(
+                    solar_pos.zenith,
+                    am_abs,
+                    linke_turbidity,
+                    self.altitude,
+                    1364.0,
+                )
             }
         }
     }

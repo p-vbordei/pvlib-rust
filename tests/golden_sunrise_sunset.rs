@@ -12,7 +12,9 @@
 mod golden;
 
 use chrono::{Datelike, NaiveDate, TimeZone};
-use pvlib::solarposition::{declination_spencer71, equation_of_time_spencer71, sun_rise_set_transit_geometric};
+use pvlib::solarposition::{
+    declination_spencer71, equation_of_time_spencer71, sun_rise_set_transit_geometric,
+};
 
 /// Rust's geometric sunrise/sunset/transit, expressed as a UTC `DateTime`,
 /// for a given UTC calendar date and location. `None` on polar day/night
@@ -21,13 +23,19 @@ fn rust_rise_set_transit(
     date: NaiveDate,
     lat: f64,
     lon: f64,
-) -> Option<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)> {
+) -> Option<(
+    chrono::DateTime<chrono::Utc>,
+    chrono::DateTime<chrono::Utc>,
+    chrono::DateTime<chrono::Utc>,
+)> {
     let doy = date.ordinal() as f64;
     let declination = declination_spencer71(doy);
     let eot = equation_of_time_spencer71(doy);
     let rst = sun_rise_set_transit_geometric(lat, lon, declination, eot, 0.0)?;
     let midnight = chrono::Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap());
-    let to_dt = |hours: f64| midnight + chrono::Duration::milliseconds((hours * 3_600_000.0).round() as i64);
+    let to_dt = |hours: f64| {
+        midnight + chrono::Duration::milliseconds((hours * 3_600_000.0).round() as i64)
+    };
     Some((to_dt(rst.sunrise), to_dt(rst.sunset), to_dt(rst.transit)))
 }
 
@@ -73,9 +81,11 @@ fn geometric_sunrise_sunset_matches_spa_within_one_slot() {
         spa.record(&format!("{slug}|sunset"), secs(set, want_set), || {
             format!("slug={slug} date={date_s} col=sunset got={set} want={want_set}")
         });
-        spa.record(&format!("{slug}|transit"), secs(transit, want_transit), || {
-            format!("slug={slug} date={date_s} col=transit got={transit} want={want_transit}")
-        });
+        spa.record(
+            &format!("{slug}|transit"),
+            secs(transit, want_transit),
+            || format!("slug={slug} date={date_s} col=transit got={transit} want={want_transit}"),
+        );
 
         // Informational only: ephem uses its own default-refraction horizon,
         // never asserted against.
@@ -96,7 +106,9 @@ fn geometric_sunrise_sunset_matches_spa_within_one_slot() {
     spa.report("golden_sunrise_sunset: geometric vs SPA (asserted, +/- 900s slot rule)");
     ephem.report("golden_sunrise_sunset: geometric vs ephem (informational only, not asserted)");
     if n_polar > 0 {
-        eprintln!("  ({n_polar} rows skipped: sun_rise_set_transit_geometric returned None -- polar day/night)");
+        eprintln!(
+            "  ({n_polar} rows skipped: sun_rise_set_transit_geometric returned None -- polar day/night)"
+        );
     }
 
     let max_err = spa.global_max();

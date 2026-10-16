@@ -1,16 +1,15 @@
-use chrono::DateTime;
-use chrono_tz::Tz;
+use crate::atmosphere::{alt2pres, get_absolute_airmass, get_relative_airmass};
+use crate::iam;
+use crate::inverter;
+use crate::irradiance::{
+    DiffuseModel, PoaComponents, aoi, erbs, get_extra_radiation, get_total_irradiance, poa_direct,
+};
 use crate::location::Location;
 use crate::pvsystem::PVSystem;
 use crate::solarposition::{self, get_solarposition};
-use crate::irradiance::{
-    aoi, get_total_irradiance, get_extra_radiation, poa_direct, erbs,
-    DiffuseModel, PoaComponents,
-};
-use crate::atmosphere::{get_relative_airmass, get_absolute_airmass, alt2pres};
-use crate::iam;
 use crate::temperature;
-use crate::inverter;
+use chrono::DateTime;
+use chrono_tz::Tz;
 
 // ---------------------------------------------------------------------------
 // Model selection enums
@@ -373,7 +372,12 @@ impl ModelChain {
         _wind_speed: f64,
     ) -> Result<SimulationResult, solarposition::SpaError> {
         let solpos = get_solarposition(&self.location, time)?;
-        let incidence = aoi(self.surface_tilt, self.surface_azimuth, solpos.zenith, solpos.azimuth);
+        let incidence = aoi(
+            self.surface_tilt,
+            self.surface_azimuth,
+            solpos.zenith,
+            solpos.azimuth,
+        );
         let iam_mult = iam::ashrae(incidence, 0.05);
         let poa_diffuse_val = crate::irradiance::isotropic(self.surface_tilt, dhi);
         let poa_dir = poa_direct(incidence, dni);
@@ -423,7 +427,12 @@ impl ModelChain {
         };
 
         // 3. AOI
-        let aoi_val = aoi(self.surface_tilt, self.surface_azimuth, solpos.zenith, solpos.azimuth);
+        let aoi_val = aoi(
+            self.surface_tilt,
+            self.surface_azimuth,
+            solpos.zenith,
+            solpos.azimuth,
+        );
 
         // 4. Day of year for extraterrestrial irradiance
         let day_of_year = {
@@ -477,7 +486,11 @@ impl ModelChain {
         let solpos = get_solarposition(&self.location, input.time)?;
         let am_rel = get_relative_airmass(solpos.zenith);
         let pressure = alt2pres(self.location.altitude);
-        let am_abs = if am_rel.is_nan() { 0.0 } else { get_absolute_airmass(am_rel, pressure) };
+        let am_abs = if am_rel.is_nan() {
+            0.0
+        } else {
+            get_absolute_airmass(am_rel, pressure)
+        };
 
         let poa = PoaComponents {
             poa_global: input.poa_global,
@@ -508,13 +521,14 @@ impl ModelChain {
         let solpos = get_solarposition(&self.location, input.time)?;
         let am_rel = get_relative_airmass(solpos.zenith);
         let pressure = alt2pres(self.location.altitude);
-        let am_abs = if am_rel.is_nan() { 0.0 } else { get_absolute_airmass(am_rel, pressure) };
+        let am_abs = if am_rel.is_nan() {
+            0.0
+        } else {
+            get_absolute_airmass(am_rel, pressure)
+        };
 
-        let temp_cell = self.calc_cell_temperature(
-            input.poa_global,
-            input.temp_air,
-            input.wind_speed,
-        );
+        let temp_cell =
+            self.calc_cell_temperature(input.poa_global, input.temp_air, input.wind_speed);
         let pdc = self.calc_dc_power(input.effective_irradiance, temp_cell);
         let pac = self.calc_ac_power(pdc);
 
@@ -561,9 +575,9 @@ impl ModelChain {
                 // Decompose GHI -> DNI + DHI using Erbs
                 let solpos = get_solarposition(&self.location, weather.time)?;
                 let day_of_year = {
-            use chrono::Datelike;
-            weather.time.ordinal() as i32
-        };
+                    use chrono::Datelike;
+                    weather.time.ordinal() as i32
+                };
                 let dni_extra = get_extra_radiation(day_of_year);
                 let (dni, dhi) = erbs(ghi, solpos.zenith, day_of_year as u32, dni_extra);
                 Ok((ghi, dni, dhi))
@@ -600,8 +614,8 @@ impl ModelChain {
         let spectral_modifier = self.calc_spectral_modifier();
 
         // Effective irradiance
-        let effective_irradiance = (poa.poa_direct * aoi_modifier + poa.poa_diffuse)
-            * spectral_modifier;
+        let effective_irradiance =
+            (poa.poa_direct * aoi_modifier + poa.poa_diffuse) * spectral_modifier;
 
         // Cell temperature
         let temp_cell = self.calc_cell_temperature(poa.poa_global, temp_air, wind_speed);
@@ -634,9 +648,9 @@ impl ModelChain {
             AOIModel::Physical => iam::physical(aoi_val, 1.526, 4.0, 0.002),
             AOIModel::ASHRAE => iam::ashrae(aoi_val, 0.05),
             AOIModel::MartinRuiz => iam::martin_ruiz(aoi_val, 0.16),
-            AOIModel::SAPM => {
-                iam::sapm(aoi_val, 1.0, -0.002438, 3.103e-4, -1.246e-5, 2.112e-7, -1.359e-9)
-            }
+            AOIModel::SAPM => iam::sapm(
+                aoi_val, 1.0, -0.002438, 3.103e-4, -1.246e-5, 2.112e-7, -1.359e-9,
+            ),
             AOIModel::NoLoss => 1.0,
         }
     }
@@ -655,11 +669,9 @@ impl ModelChain {
                 );
                 temp_cell
             }
-            TemperatureModel::PVSyst => {
-                temperature::pvsyst_cell_temperature(
-                    poa_global, temp_air, wind_speed, 29.0, 0.0, 0.15, 0.9,
-                )
-            }
+            TemperatureModel::PVSyst => temperature::pvsyst_cell_temperature(
+                poa_global, temp_air, wind_speed, 29.0, 0.0, 0.15, 0.9,
+            ),
             TemperatureModel::Faiman => {
                 temperature::faiman(poa_global, temp_air, wind_speed, 25.0, 6.84)
             }
@@ -669,15 +681,15 @@ impl ModelChain {
             TemperatureModel::NOCT_SAM => {
                 temperature::noct_sam_default(poa_global, temp_air, wind_speed, 45.0, 0.15)
             }
-            TemperatureModel::PVWatts => {
-                temp_air + poa_global * (45.0 - 20.0) / 800.0
-            }
+            TemperatureModel::PVWatts => temp_air + poa_global * (45.0 - 20.0) / 800.0,
         }
     }
 
     fn calc_dc_power(&self, effective_irradiance: f64, temp_cell: f64) -> f64 {
         match self.config.dc_model {
-            DCModel::PVWatts => self.system.get_dc_power_total(effective_irradiance, temp_cell),
+            DCModel::PVWatts => self
+                .system
+                .get_dc_power_total(effective_irradiance, temp_cell),
         }
     }
 

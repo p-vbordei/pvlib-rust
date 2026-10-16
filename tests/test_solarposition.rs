@@ -6,20 +6,32 @@ use pvlib::solarposition::*;
 fn test_eot_spencer71_vernal_equinox() {
     // Around day 80 (vernal equinox), EoT should be close to -7 to -8 minutes
     let eot = equation_of_time_spencer71(80.0);
-    assert!(eot.abs() < 15.0, "EoT at day 80 should be within +/-15 min, got {}", eot);
+    assert!(
+        eot.abs() < 15.0,
+        "EoT at day 80 should be within +/-15 min, got {}",
+        eot
+    );
 }
 
 #[test]
 fn test_eot_spencer71_summer_solstice() {
     // Around day 172 (June 21), EoT is roughly -1 to +1 minutes
     let eot = equation_of_time_spencer71(172.0);
-    assert!(eot.abs() < 5.0, "EoT at day 172 should be small, got {}", eot);
+    assert!(
+        eot.abs() < 5.0,
+        "EoT at day 172 should be small, got {}",
+        eot
+    );
 }
 
 #[test]
 fn test_eot_pvcdrom_vernal_equinox() {
     let eot = equation_of_time_pvcdrom(80.0);
-    assert!(eot.abs() < 15.0, "EoT PVCDROM at day 80 should be within +/-15 min, got {}", eot);
+    assert!(
+        eot.abs() < 15.0,
+        "EoT PVCDROM at day 80 should be within +/-15 min, got {}",
+        eot
+    );
 }
 
 #[test]
@@ -31,7 +43,9 @@ fn test_eot_spencer71_vs_pvcdrom_agreement() {
         assert!(
             (s - p).abs() < 3.0,
             "Spencer and PVCDROM should roughly agree at doy {}: spencer={}, pvcdrom={}",
-            doy, s, p
+            doy,
+            s,
+            p
         );
     }
 }
@@ -81,7 +95,9 @@ fn test_declination_spencer71_vs_cooper69_agreement() {
         assert!(
             (s - c).abs() < 3.0,
             "Spencer and Cooper declinations should roughly agree at doy {}: {} vs {}",
-            doy, s, c
+            doy,
+            s,
+            c
         );
     }
 }
@@ -93,21 +109,33 @@ fn test_hour_angle_solar_noon() {
     // At solar noon (12h UTC) at prime meridian (lon=0) with zero EoT,
     // hour angle should be 0
     let ha = hour_angle(12.0, 0.0, 0.0);
-    assert!((ha - 0.0).abs() < 1e-10, "Hour angle at solar noon should be 0, got {}", ha);
+    assert!(
+        (ha - 0.0).abs() < 1e-10,
+        "Hour angle at solar noon should be 0, got {}",
+        ha
+    );
 }
 
 #[test]
 fn test_hour_angle_morning() {
     // 6h UTC, lon=0, EoT=0 -> HA = 15*(6-12) = -90 degrees
     let ha = hour_angle(6.0, 0.0, 0.0);
-    assert!((ha - (-90.0)).abs() < 1e-10, "Hour angle at 6h should be -90, got {}", ha);
+    assert!(
+        (ha - (-90.0)).abs() < 1e-10,
+        "Hour angle at 6h should be -90, got {}",
+        ha
+    );
 }
 
 #[test]
 fn test_hour_angle_with_longitude() {
     // 12h UTC, lon=15 (1h east), EoT=0 -> HA = 15*(12-12) + 15 = 15 degrees
     let ha = hour_angle(12.0, 15.0, 0.0);
-    assert!((ha - 15.0).abs() < 1e-10, "Hour angle with lon=15 should be 15, got {}", ha);
+    assert!(
+        (ha - 15.0).abs() < 1e-10,
+        "Hour angle with lon=15 should be 15, got {}",
+        ha
+    );
 }
 
 // --- Solar Zenith Analytical ---
@@ -119,7 +147,11 @@ fn test_solar_zenith_at_noon_equinox_equator() {
     let ha = 0.0_f64.to_radians();
     let dec = 0.0_f64.to_radians();
     let z = solar_zenith_analytical(lat, ha, dec);
-    assert!(z.to_degrees().abs() < 1e-6, "Zenith should be 0 at equator noon equinox, got {} deg", z.to_degrees());
+    assert!(
+        z.to_degrees().abs() < 1e-6,
+        "Zenith should be 0 at equator noon equinox, got {} deg",
+        z.to_degrees()
+    );
 }
 
 #[test]
@@ -129,7 +161,11 @@ fn test_solar_zenith_at_noon_summer_solstice_tropic() {
     let ha = 0.0_f64.to_radians();
     let dec = 23.45_f64.to_radians();
     let z = solar_zenith_analytical(lat, ha, dec);
-    assert!(z.to_degrees().abs() < 1.0, "Zenith should be ~0 at Tropic of Cancer on solstice, got {} deg", z.to_degrees());
+    assert!(
+        z.to_degrees().abs() < 1.0,
+        "Zenith should be ~0 at Tropic of Cancer on solstice, got {} deg",
+        z.to_degrees()
+    );
 }
 
 // --- Solar Azimuth Analytical ---
@@ -171,9 +207,21 @@ fn test_sunrise_sunset_equinox_equator() {
     // At equinox (dec=0), equator: sunrise ~6h, sunset ~18h, transit ~12h (local)
     let result = sun_rise_set_transit_geometric(0.0, 0.0, 0.0, 0.0, 0.0);
     let srs = result.expect("Should return Some for equinox at equator");
-    assert!((srs.sunrise - 6.0).abs() < 0.5, "Sunrise should be ~6h, got {}", srs.sunrise);
-    assert!((srs.sunset - 18.0).abs() < 0.5, "Sunset should be ~18h, got {}", srs.sunset);
-    assert!((srs.transit - 12.0).abs() < 0.5, "Transit should be ~12h, got {}", srs.transit);
+    assert!(
+        (srs.sunrise - 6.0).abs() < 0.5,
+        "Sunrise should be ~6h, got {}",
+        srs.sunrise
+    );
+    assert!(
+        (srs.sunset - 18.0).abs() < 0.5,
+        "Sunset should be ~18h, got {}",
+        srs.sunset
+    );
+    assert!(
+        (srs.transit - 12.0).abs() < 0.5,
+        "Transit should be ~12h, got {}",
+        srs.transit
+    );
 }
 
 #[test]
@@ -216,11 +264,11 @@ fn test_earthsun_distance_range() {
         assert!(
             d > 0.98 && d < 1.02,
             "Distance at doy {} out of range: {}",
-            doy, d
+            doy,
+            d
         );
     }
 }
-
 
 // --- Apparent (refraction-corrected) solar position ---
 
@@ -245,10 +293,10 @@ fn test_earthsun_distance_range() {
 #[test]
 fn test_apparent_zenith_nrel_spa_reference() {
     use chrono::TimeZone;
-    let loc = pvlib::location::Location::new(
-        39.742476, -105.1786, chrono_tz::UTC, 1830.14, "NREL",
-    );
-    let t = chrono_tz::UTC.with_ymd_and_hms(2003, 10, 17, 19, 30, 30).unwrap();
+    let loc = pvlib::location::Location::new(39.742476, -105.1786, chrono_tz::UTC, 1830.14, "NREL");
+    let t = chrono_tz::UTC
+        .with_ymd_and_hms(2003, 10, 17, 19, 30, 30)
+        .unwrap();
     // 820 mbar = 82000 Pa (the API takes Pascals, like pvlib spa_python).
     let sp = get_solarposition_apparent(&loc, t, Some(82000.0), Some(11.0)).unwrap();
 
@@ -283,7 +331,11 @@ fn test_refraction_negligible_at_high_sun() {
     // At 60 deg elevation the SPA refraction is under ~0.01 deg.
     let delta_e = atmospheric_refraction_correction(1013.25, 12.0, 60.0, DEFAULT_ATMOS_REFRACT);
     assert!(delta_e > 0.0);
-    assert!(delta_e < 0.01, "refraction at e0=60 should be ~0.006 deg, got {}", delta_e);
+    assert!(
+        delta_e < 0.01,
+        "refraction at e0=60 should be ~0.006 deg, got {}",
+        delta_e
+    );
 }
 
 #[test]
@@ -306,7 +358,8 @@ fn test_refraction_zero_below_spa_horizon_threshold() {
     assert!((threshold - (-0.83337)).abs() < 1e-9);
 
     // Below the threshold: no correction.
-    let below = atmospheric_refraction_correction(1013.25, 12.0, threshold - 0.001, DEFAULT_ATMOS_REFRACT);
+    let below =
+        atmospheric_refraction_correction(1013.25, 12.0, threshold - 0.001, DEFAULT_ATMOS_REFRACT);
     assert_eq!(below, 0.0);
     // At/above the threshold: correction applies.
     let at = atmospheric_refraction_correction(1013.25, 12.0, threshold, DEFAULT_ATMOS_REFRACT);
@@ -317,7 +370,9 @@ fn test_refraction_zero_below_spa_horizon_threshold() {
 fn test_apparent_defaults_match_explicit_pvlib_defaults() {
     use chrono::TimeZone;
     let loc = pvlib::location::Location::new(46.52, 21.52, chrono_tz::UTC, 100.0, "Chisineu");
-    let t = chrono_tz::UTC.with_ymd_and_hms(2025, 6, 21, 10, 0, 0).unwrap();
+    let t = chrono_tz::UTC
+        .with_ymd_and_hms(2025, 6, 21, 10, 0, 0)
+        .unwrap();
     let defaulted = get_solarposition_apparent(&loc, t, None, None).unwrap();
     let explicit = get_solarposition_apparent(&loc, t, Some(101325.0), Some(12.0)).unwrap();
     assert_eq!(defaulted, explicit);

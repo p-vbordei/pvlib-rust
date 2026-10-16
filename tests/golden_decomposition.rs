@@ -62,16 +62,25 @@ fn erbs_matches_pvlib() {
 
         let kt_err = (kt - row.kt).abs();
         stats.record(&format!("{slug}|kt"), kt_err, || {
-            format!("slug={slug} ts={ts_s} cf={cf} col=kt got={kt:.6} want={:.6}", row.kt)
+            format!(
+                "slug={slug} ts={ts_s} cf={cf} col=kt got={kt:.6} want={:.6}",
+                row.kt
+            )
         });
         if kt_err > 0.001 {
             n_bad += 1;
             if examples.len() < 10 {
-                examples.push(format!("slug={slug} ts={ts_s} cf={cf} col=kt got={kt:.6} want={:.6} err={kt_err:.6}", row.kt));
+                examples.push(format!(
+                    "slug={slug} ts={ts_s} cf={cf} col=kt got={kt:.6} want={:.6} err={kt_err:.6}",
+                    row.kt
+                ));
             }
         }
 
-        for (col, got, want) in [("dni_erbs", dni, row.dni_erbs), ("dhi_erbs", dhi, row.dhi_erbs)] {
+        for (col, got, want) in [
+            ("dni_erbs", dni, row.dni_erbs),
+            ("dhi_erbs", dhi, row.dhi_erbs),
+        ] {
             let err = (got - want).abs();
             stats.record(&format!("{slug}|{col}"), err, || {
                 format!("slug={slug} ts={ts_s} cf={cf} col={col} got={got:.6} want={want:.6}")
@@ -92,7 +101,10 @@ fn erbs_matches_pvlib() {
             eprintln!("    {e}");
         }
     }
-    assert_eq!(n_bad, 0, "{n_bad} (row, column) pairs exceeded tolerance -- see report above");
+    assert_eq!(
+        n_bad, 0,
+        "{n_bad} (row, column) pairs exceeded tolerance -- see report above"
+    );
 }
 
 /// pvlib's `dirint(use_delta_kt_prime=True)` (default) is fed the whole
@@ -128,7 +140,9 @@ fn dirint_matches_pvlib_on_non_nan_rows() {
     let mut n_compared = 0usize;
     let mut examples: Vec<String> = Vec::new();
 
-    for group in rows.chunk_by(|a, b| a.slug == b.slug && (a.cloud_factor - b.cloud_factor).abs() < 1e-9) {
+    for group in
+        rows.chunk_by(|a, b| a.slug == b.slug && (a.cloud_factor - b.cloud_factor).abs() < 1e-9)
+    {
         let slug = &group[0].slug;
         let alt = locations
             .get(slug)

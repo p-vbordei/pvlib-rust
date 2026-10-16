@@ -48,9 +48,16 @@ pub fn pvwatts_multi(pdc: &[f64], pdc0: f64, eta_inv_nom: f64, eta_inv_ref: f64)
 /// Matches pvlib-python `_sandia_eff`.
 #[allow(clippy::too_many_arguments)]
 fn sandia_eff(
-    v_dc: f64, p_dc: f64,
-    p_aco: f64, p_dco: f64, v_dco: f64, p_so: f64,
-    c0: f64, c1: f64, c2: f64, c3: f64,
+    v_dc: f64,
+    p_dc: f64,
+    p_aco: f64,
+    p_dco: f64,
+    v_dco: f64,
+    p_so: f64,
+    c0: f64,
+    c1: f64,
+    c2: f64,
+    c3: f64,
 ) -> f64 {
     let a = p_dco * (1.0 + c1 * (v_dc - v_dco));
     let b = p_so * (1.0 + c2 * (v_dc - v_dco));
@@ -87,9 +94,17 @@ fn sandia_eff(
 #[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn sandia(
-    v_dc: f64, p_dc: f64,
-    p_aco: f64, p_dco: f64, v_dco: f64, p_so: f64,
-    c0: f64, c1: f64, c2: f64, c3: f64, p_nt: f64,
+    v_dc: f64,
+    p_dc: f64,
+    p_aco: f64,
+    p_dco: f64,
+    v_dco: f64,
+    p_so: f64,
+    c0: f64,
+    c1: f64,
+    c2: f64,
+    c3: f64,
+    p_nt: f64,
 ) -> f64 {
     let power_ac = sandia_eff(v_dc, p_dc, p_aco, p_dco, v_dco, p_so, c0, c1, c2, c3);
     sandia_limits(power_ac, p_dc, p_aco, p_nt, p_so)
@@ -129,11 +144,23 @@ fn sandia_limits(power_ac: f64, p_dc: f64, p_aco: f64, p_nt: f64, p_so: f64) -> 
 #[allow(clippy::too_many_arguments)]
 #[inline]
 pub fn sandia_multi(
-    v_dc: &[f64], p_dc: &[f64],
-    p_aco: f64, p_dco: f64, v_dco: f64, p_so: f64,
-    c0: f64, c1: f64, c2: f64, c3: f64, p_nt: f64,
+    v_dc: &[f64],
+    p_dc: &[f64],
+    p_aco: f64,
+    p_dco: f64,
+    v_dco: f64,
+    p_so: f64,
+    c0: f64,
+    c1: f64,
+    c2: f64,
+    c3: f64,
+    p_nt: f64,
 ) -> f64 {
-    assert_eq!(v_dc.len(), p_dc.len(), "v_dc and p_dc must have the same length");
+    assert_eq!(
+        v_dc.len(),
+        p_dc.len(),
+        "v_dc and p_dc must have the same length"
+    );
 
     let power_dc_total: f64 = p_dc.iter().sum();
 
@@ -144,7 +171,19 @@ pub fn sandia_multi(
     let mut power_ac = 0.0;
     for (vdc_i, pdc_i) in v_dc.iter().zip(p_dc.iter()) {
         let weight = pdc_i / power_dc_total;
-        power_ac += weight * sandia_eff(*vdc_i, power_dc_total, p_aco, p_dco, v_dco, p_so, c0, c1, c2, c3);
+        power_ac += weight
+            * sandia_eff(
+                *vdc_i,
+                power_dc_total,
+                p_aco,
+                p_dco,
+                v_dco,
+                p_so,
+                c0,
+                c1,
+                c2,
+                c3,
+            );
     }
 
     sandia_limits(power_ac, power_dc_total, p_aco, p_nt, p_so)
@@ -193,11 +232,7 @@ pub fn adr(
         pdc * (1.0 / vdc - 1.0),
         pdc * pdc * (1.0 / vdc - 1.0),
     ];
-    let p_loss: f64 = adr_coeffs
-        .iter()
-        .zip(poly.iter())
-        .map(|(c, p)| c * p)
-        .sum();
+    let p_loss: f64 = adr_coeffs.iter().zip(poly.iter()).map(|(c, p)| c * p).sum();
     let power_ac = p_nom * (pdc - p_loss);
     power_ac.clamp(-p_nt.abs(), pac_max)
 }

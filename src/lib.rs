@@ -68,37 +68,37 @@
 // Private data tables for algorithms that require large coefficient sets.
 mod dirint_coeffs;
 
-pub mod location;
-pub mod solarposition;
-pub mod atmosphere;
-pub mod clearsky;
-pub mod irradiance;
-pub mod temperature;
-pub mod iam;
-pub mod tracking;
-pub mod pvsystem;
-pub mod inverter;
-pub mod modelchain;
-pub mod bifacial;
-pub mod singlediode;
-pub mod iotools;
-pub mod shading;
-pub mod soiling;
-pub mod snow;
-pub mod spectrum;
-pub mod scaling;
 pub mod albedo;
-pub mod pvarray;
-pub mod transformer;
-pub mod ivtools;
+pub mod atmosphere;
 pub mod batch;
+pub mod bifacial;
+pub mod clearsky;
+pub mod iam;
+pub mod inverter;
+pub mod iotools;
+pub mod irradiance;
+pub mod ivtools;
+pub mod location;
+pub mod modelchain;
+pub mod pvarray;
+pub mod pvsystem;
+pub mod scaling;
+pub mod shading;
+pub mod singlediode;
+pub mod snow;
+pub mod soiling;
+pub mod solarposition;
+pub mod spectrum;
+pub mod temperature;
+pub mod tracking;
+pub mod transformer;
 
 // ---------------------------------------------------------------------------
 // Crate-root re-exports for the common entry points. Users can write
 // `pvlib::Location` instead of `pvlib::location::Location`, etc.
 // ---------------------------------------------------------------------------
 
+pub use batch::{BatchModelChain, SimulationSeries, WeatherSeries};
 pub use location::{Location, LocationError};
-pub use batch::{BatchModelChain, WeatherSeries, SimulationSeries};
 pub use modelchain::{ModelChain, ModelChainConfig, ModelChainResult, WeatherInput};
-pub use pvsystem::{PVSystem, Array, Mount, FixedMount, SingleAxisTrackerMount};
+pub use pvsystem::{Array, FixedMount, Mount, PVSystem, SingleAxisTrackerMount};

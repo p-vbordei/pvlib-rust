@@ -11,14 +11,21 @@ fn test_params() -> Bishop88Params {
 fn test_estimate_voc_positive() {
     let voc = estimate_voc(1.0, 9e-10, 4.0);
     // Voc_est = 4 * ln(1/9e-10 + 1) ~ 4 * ln(1.11e9) ~ 4 * 20.83 ~ 83.3
-    assert!(voc > 50.0 && voc < 100.0, "Voc estimate should be reasonable, got {}", voc);
+    assert!(
+        voc > 50.0 && voc < 100.0,
+        "Voc estimate should be reasonable, got {}",
+        voc
+    );
 }
 
 #[test]
 fn test_estimate_voc_proportional_to_nnsvth() {
     let voc1 = estimate_voc(1.0, 9e-10, 4.0);
     let voc2 = estimate_voc(1.0, 9e-10, 8.0);
-    assert!((voc2 / voc1 - 2.0).abs() < 0.01, "Voc should scale linearly with nNsVth");
+    assert!(
+        (voc2 / voc1 - 2.0).abs() < 0.01,
+        "Voc should scale linearly with nNsVth"
+    );
 }
 
 // --- bishop88 basic ---
@@ -58,7 +65,11 @@ fn test_bishop88_power_positive_midpoint() {
     let p = test_params();
     let voc_est = estimate_voc(p.photocurrent, p.saturation_current, p.n_ns_vth);
     let out = bishop88(voc_est * 0.5, &p);
-    assert!(out.power > 0.0, "Power should be positive at midpoint, got {}", out.power);
+    assert!(
+        out.power > 0.0,
+        "Power should be positive at midpoint, got {}",
+        out.power
+    );
 }
 
 // --- bishop88_i_from_v ---
@@ -81,11 +92,7 @@ fn test_bishop88_i_from_v_at_voc() {
     // Find Voc first
     let voc = bishop88_v_from_i(0.0, &p);
     let i = bishop88_i_from_v(voc, &p);
-    assert!(
-        i.abs() < 0.01,
-        "I at Voc should be ~0, got {}",
-        i
-    );
+    assert!(i.abs() < 0.01, "I at Voc should be ~0, got {}", i);
 }
 
 // --- bishop88_v_from_i ---
@@ -104,11 +111,7 @@ fn test_bishop88_v_from_i_at_isc() {
     let p = test_params();
     let v = bishop88_v_from_i(1.0, &p);
     // At Isc, voltage should be ~0 (or slightly negative due to Rs)
-    assert!(
-        v.abs() < 5.0,
-        "V at Isc should be near 0, got {}",
-        v
-    );
+    assert!(v.abs() < 5.0, "V at Isc should be near 0, got {}", v);
 }
 
 // --- bishop88_mpp ---
@@ -117,9 +120,21 @@ fn test_bishop88_v_from_i_at_isc() {
 fn test_bishop88_mpp_positive_power() {
     let p = test_params();
     let mpp = bishop88_mpp(&p);
-    assert!(mpp.power > 0.0, "MPP power should be positive, got {}", mpp.power);
-    assert!(mpp.current > 0.0, "MPP current should be positive, got {}", mpp.current);
-    assert!(mpp.voltage > 0.0, "MPP voltage should be positive, got {}", mpp.voltage);
+    assert!(
+        mpp.power > 0.0,
+        "MPP power should be positive, got {}",
+        mpp.power
+    );
+    assert!(
+        mpp.current > 0.0,
+        "MPP current should be positive, got {}",
+        mpp.current
+    );
+    assert!(
+        mpp.voltage > 0.0,
+        "MPP voltage should be positive, got {}",
+        mpp.voltage
+    );
 }
 
 #[test]
@@ -130,7 +145,8 @@ fn test_bishop88_mpp_less_than_voc() {
     assert!(
         mpp.voltage < voc,
         "MPP voltage ({}) should be less than Voc ({})",
-        mpp.voltage, voc
+        mpp.voltage,
+        voc
     );
 }
 
@@ -142,7 +158,8 @@ fn test_bishop88_mpp_current_less_than_isc() {
     assert!(
         mpp.current < isc,
         "MPP current ({}) should be less than Isc ({})",
-        mpp.current, isc
+        mpp.current,
+        isc
     );
 }
 
@@ -160,7 +177,9 @@ fn test_bishop88_mpp_is_maximum() {
         assert!(
             out.power <= mpp.power + 1e-6,
             "Found higher power ({}) than MPP ({}) at vd={}",
-            out.power, mpp.power, vd
+            out.power,
+            mpp.power,
+            vd
         );
     }
 }
@@ -176,7 +195,8 @@ fn test_bishop88_i_from_v_roundtrip() {
     assert!(
         (v_back - v_target).abs() < 0.01,
         "Roundtrip V: expected {}, got {}",
-        v_target, v_back
+        v_target,
+        v_back
     );
 }
 
@@ -185,13 +205,21 @@ fn test_bishop88_i_from_v_roundtrip() {
 #[test]
 fn test_legacy_i_from_v() {
     let i = i_from_v(0.0, 1.0, 9e-10, 4.0, 5000.0, 4.0);
-    assert!((i - 1.0).abs() < 0.01, "Legacy i_from_v at V=0 should give ~Isc, got {}", i);
+    assert!(
+        (i - 1.0).abs() < 0.01,
+        "Legacy i_from_v at V=0 should give ~Isc, got {}",
+        i
+    );
 }
 
 #[test]
 fn test_legacy_v_from_i() {
     let v = v_from_i(0.0, 1.0, 9e-10, 4.0, 5000.0, 4.0);
-    assert!(v > 0.0, "Legacy v_from_i at I=0 should give positive Voc, got {}", v);
+    assert!(
+        v > 0.0,
+        "Legacy v_from_i at I=0 should give positive Voc, got {}",
+        v
+    );
 }
 
 #[test]
@@ -201,7 +229,15 @@ fn test_bishop88_gradients_computed() {
     let (out, grad) = bishop88_with_gradients(voc_est * 0.5, &p);
     assert!(out.power > 0.0);
     // dv/dvd should be > 0 (monotonic mapping)
-    assert!(grad.dv_dvd > 0.0, "dv/dvd should be positive, got {}", grad.dv_dvd);
+    assert!(
+        grad.dv_dvd > 0.0,
+        "dv/dvd should be positive, got {}",
+        grad.dv_dvd
+    );
     // di/dvd should be negative (current decreases as voltage increases)
-    assert!(grad.di_dvd < 0.0, "di/dvd should be negative, got {}", grad.di_dvd);
+    assert!(
+        grad.di_dvd < 0.0,
+        "di/dvd should be negative, got {}",
+        grad.di_dvd
+    );
 }

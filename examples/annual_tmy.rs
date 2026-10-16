@@ -10,9 +10,9 @@
 
 use chrono::{Duration, TimeZone};
 use chrono_tz::US::Mountain;
+use pvlib::Location;
 use pvlib::batch::{BatchModelChain, WeatherSeries};
 use pvlib::irradiance::DiffuseModel;
-use pvlib::Location;
 
 fn main() {
     // Golden, Colorado (NREL HQ).
@@ -30,9 +30,7 @@ fn main() {
     // One hourly timestamp for every hour of 2024 (8784 — leap year).
     let start = Mountain.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
     let n_hours = 366 * 24;
-    let times: Vec<_> = (0..n_hours)
-        .map(|h| start + Duration::hours(h))
-        .collect();
+    let times: Vec<_> = (0..n_hours).map(|h| start + Duration::hours(h)).collect();
 
     // Synthesise a very rough GHI profile: a half-sinusoid peaking at solar
     // noon, scaled by a crude seasonal factor. This is NOT a realistic TMY
@@ -67,7 +65,10 @@ fn main() {
     println!("pvlib-rust — annual TMY simulation");
     println!("  timesteps:       {}", results.ac_power.len());
     println!("  wall clock:      {:.2?}", elapsed);
-    println!("  annual energy:   {:.1} kWh", results.total_energy_wh() / 1000.0);
+    println!(
+        "  annual energy:   {:.1} kWh",
+        results.total_energy_wh() / 1000.0
+    );
     println!("  peak AC power:   {:.0} W", results.peak_power());
     println!(
         "  capacity factor: {:.1}%",
